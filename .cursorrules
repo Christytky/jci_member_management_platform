@@ -1,0 +1,39 @@
+This is a Next.js + SQLite membership dashboard for a JCI chapter.
+Read PRD_Smart_Member_Growth_Tracker.md and README.md before any change.
+The PRD is the spec; the README records where this build deviates and why.
+
+Architecture — do not change without discussing it first:
+- Python (src/, scripts/) owns ALL logic: derived fields, health score,
+  alert rules, permissions. It runs at build time and emits five
+  pre-filtered JSON payloads, one per demo persona, to web/data/.
+- Next.js (web/) only renders those payloads, in SERVER components.
+- There is no API route for member data, no runtime database, no ORM,
+  no auth library. Do not add one.
+
+Rules:
+- The app is READ-ONLY on member data. The only thing written at runtime is
+  the activity log.
+- Permission filtering happens in Python, in src/permissions.py, before the
+  JSON is written. Never filter in a React component, and never ship a field
+  to the client that the role may not see. Hidden field groups are DROPPED,
+  never hidden with CSS.
+- Field-group permissions must follow the data into EVERY table, not just
+  members. status_events.reason once leaked a removal reason that the
+  governance group was correctly hiding. Check new tables against the matrix.
+- web/lib/data.ts imports "server-only". Never remove that, and never import
+  it from a client component.
+- Derived fields (age, deadlines, requirement status, project role, health
+  score, WhatsApp group) are computed in src/derived.py or src/health.py.
+  Never store them in the database.
+- Colours come from web/lib/theme.ts only. Never write a hex literal in a
+  page or component. Chart series use the PRD 13.2 values, not the raw brand
+  hexes — they were validated for colour-vision separation.
+- Never use colour alone: every health band and alert carries an icon and a
+  text label too.
+- Every table needs an empty state. Blank panels make a demo look broken.
+- Keep functions under 40 lines. No class hierarchies. No premature
+  abstraction.
+- After changing anything in src/ or scripts/: re-run
+  `python scripts/export_json.py && python scripts/verify.py`.
+  verify.py must exit 0. It checks the seven alert counts against the PRD.
+- Do not add features that are not in the PRD. If the PRD is silent, ask.
