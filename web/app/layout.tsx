@@ -1,9 +1,5 @@
 import type { Metadata } from "next";
 
-import { Sidebar } from "@/components/Sidebar";
-import { RoleBanner } from "@/components/RoleBanner";
-import { currentPersonaKey, getPayload, listPersonas } from "@/lib/data";
-
 import "./globals.css";
 
 // PRD 13.1: Plus Jakarta Sans is JCI's official primary typeface.
@@ -19,19 +15,16 @@ export const metadata: Metadata = {
     "One live member record, a full movement history, and access granted by post rather than by sharing a file.",
 };
 
-export default async function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  // Read once here, in a server component. The payload for this persona was
-  // filtered at build time; nothing below this line can widen it.
-  const [payload, personas, current] = await Promise.all([
-    getPayload(),
-    listPersonas(),
-    currentPersonaKey(),
-  ]);
-
+/**
+ * The root layout holds the document and nothing else.
+ *
+ * Everything that assumes a signed-in user -- the sidebar, the access
+ * banner, the payload itself -- lives in app/(app)/layout.tsx, which reads
+ * the session and redirects when there is none. /login therefore renders
+ * with no chance of a guard being skipped, because the shell it would have
+ * to skip is not in its tree.
+ */
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
@@ -42,20 +35,7 @@ export default async function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>
-        <div className="flex h-screen overflow-hidden">
-          <Sidebar
-            payload={payload}
-            personas={personas}
-            current={current}
-            alertCount={payload.alerts.length}
-          />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <RoleBanner payload={payload} />
-            <main className="flex-1 overflow-y-auto px-8 py-7">{children}</main>
-          </div>
-        </div>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

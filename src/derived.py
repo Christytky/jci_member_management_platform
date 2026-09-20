@@ -12,6 +12,8 @@ from datetime import date, datetime
 
 import pandas as pd
 
+from src import roles
+
 # Reference date for every age, deadline and recency calculation.
 # Pinned so the demo is identical on every run and on every machine.
 AS_OF = datetime.strptime(os.environ.get("JCI_AS_OF", "2026-09-19"), "%Y-%m-%d").date()
@@ -102,7 +104,13 @@ def enrich(frames: dict[str, pd.DataFrame]) -> pd.DataFrame:
     m["is_active"] = m["member_status"].isin(
         ["Active", "Pending Induction", "Pending Fee", "Pending BOD Motion"]
     )
-    return m
+
+    # Roles last: it reads project_role_2026, which is computed above. This is
+    # the one place the role record becomes a permission tier, so every
+    # consumer downstream -- payloads, login, page guards -- agrees by
+    # construction rather than by everyone remembering to call the same
+    # helper.
+    return roles.annotate(m)
 
 
 def _fm_status(m: pd.DataFrame, deadline: pd.Series, ref: pd.Timestamp) -> pd.Series:
@@ -170,13 +178,16 @@ def verify(m: pd.DataFrame, raw: pd.DataFrame) -> int:
             want = want.fillna("None")
         if computed == "whatsapp_groups":
             want = want.fillna("")
-        a = got.astype(str).str.strip().str.replace(r"\.0$", "", regex=True)
-        b = (
-            want.astype(str)
+        # Both sides go through the same normalisation, so a value that is
+        # blank in the sheet and missing in the computed column compares
+        # equal instead of reading as "nan" against "".
+        norm = lambda s: (  # noqa: E731
+            s.astype(str)
             .str.strip()
-            .replace({"nan": "", "<NA>": "", "NaT": ""})
+            .replace({"nan": "", "<NA>": "", "NaT": "", "None": ""})
             .str.replace(r"\.0$", "", regex=True)
         )
+        a, b = norm(got), norm(want)
         diff = a.compare(b)
         scope = "" if flt is None else " (PM only)"
         if len(diff):

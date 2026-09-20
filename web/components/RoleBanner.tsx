@@ -19,7 +19,18 @@ const GROUP_LABEL: Record<string, string> = {
  */
 export function RoleBanner({ payload }: { payload: Payload }) {
   const hidden = payload.access.hidden_groups;
-  const full = hidden.length === 0;
+  const masked = payload.access.masked_groups;
+  // Masked counts. A tier with nothing fully hidden but its dates of birth
+  // reduced to five-year bands does not have full access, and the field
+  // count on the right of this strip would have contradicted the claim.
+  const full = hidden.length === 0 && masked.length === 0;
+
+  const phrase = (groups: string[], verb: string) => (
+    <>
+      {groups.map((g) => GROUP_LABEL[g] ?? g).join(", ")} {groups.length === 1 ? "is" : "are"}{" "}
+      {verb}
+    </>
+  );
 
   return (
     <div
@@ -35,24 +46,33 @@ export function RoleBanner({ payload }: { payload: Payload }) {
         <EyeOff className="h-4 w-4 shrink-0" aria-hidden />
       )}
       <span>
-        Viewing as <strong className="font-semibold">{payload.persona.name}</strong> ·{" "}
-        {payload.persona.post}
+        Signed in as <strong className="font-semibold">{payload.viewer.name}</strong> ·{" "}
+        {/* The role record, then the tier. Both, always -- the distinction
+            between them is the thing this strip exists to make obvious. */}
+        <span title="Every role held, highest first">{payload.viewer.role_record}</span>
+        <span aria-hidden className="px-1 opacity-40">
+          →
+        </span>
+        <strong className="font-semibold">{payload.access.tier}</strong>
+        {payload.viewer.governing_role && <> via {payload.viewer.governing_role}</>}
       </span>
       <span aria-hidden className="opacity-40">
         —
       </span>
       <span>
         {full ? (
-          <>full access to all 53 fields</>
+          <>full access to all {payload.access.total_fields} fields</>
         ) : (
           <>
-            {hidden.map((g) => GROUP_LABEL[g] ?? g).join(", ")}{" "}
-            {hidden.length === 1 ? "is" : "are"} hidden by your access level
+            {hidden.length > 0 && phrase(hidden, "hidden")}
+            {hidden.length > 0 && masked.length > 0 && <>; </>}
+            {masked.length > 0 && phrase(masked, "shown as five-year bands")}{" "}
+            by your access level
           </>
         )}
       </span>
       <span className="ml-auto text-[11px] font-semibold tnum opacity-70">
-        {payload.access.column_count} of 53 fields loaded
+        {payload.access.column_count} of {payload.access.total_fields} fields loaded
       </span>
     </div>
   );

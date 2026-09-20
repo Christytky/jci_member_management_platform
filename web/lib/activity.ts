@@ -3,8 +3,13 @@ import "server-only";
 /**
  * The activity log. PRD 6.6 -- the punchline of the demo.
  *
- * Every restricted view, role switch and export lands here, and the
+ * Every sign-in, restricted view, export and upload lands here, and the
  * Activity page shows the judge the rows their own clicks just created.
+ *
+ * actor_name is now a person. Under the old shared account it could only
+ * ever be the persona that was selected in a dropdown, which is exactly the
+ * accountability gap individual logins close: "Rufus To opened this record"
+ * is a fact about a human being, "the President persona was selected" is not.
  *
  * Stage 1 keeps this in a server-side module singleton: it is append-only
  * within the process and never reaches the client except through the
@@ -14,10 +19,14 @@ import "server-only";
  */
 
 export type LogAction =
-  | "SWITCH_ROLE"
+  | "SIGN_IN"
+  | "SIGN_IN_FAILED"
+  | "SIGN_OUT"
   | "VIEW_MEMBER"
   | "VIEW_RESTRICTED"
+  | "VIEW_GROWTH"
   | "EXPORT"
+  | "UPLOAD"
   | "VIEW_DASHBOARD";
 
 export type LogRow = {
@@ -54,6 +63,7 @@ function store() {
 function seed(s: { rows: LogRow[]; next: number }) {
   const base = new Date("2026-09-18T09:12:00+08:00").getTime();
   const rows: Omit<LogRow, "log_id" | "ts">[] = [
+    { actor_name: "Rufus To", actor_role: "President + MA", action: "SIGN_IN", target_member_id: "VJC-0007", field_group: null, detail: "Signed in · role record MAD & BOD & SO & FM · President + MA via MAD" },
     { actor_name: "Rufus To", actor_role: "President + MA", action: "VIEW_RESTRICTED", target_member_id: "VJC-0064", field_group: "personal", detail: "Opened Profile tab" },
     { actor_name: "Rufus To", actor_role: "President + MA", action: "EXPORT", target_member_id: null, field_group: "analytics", detail: "Directory export, 53 columns" },
     { actor_name: "Man Kit Lee", actor_role: "HS + FD", action: "VIEW_RESTRICTED", target_member_id: "VJC-0089", field_group: "finance", detail: "Opened Fees tab" },

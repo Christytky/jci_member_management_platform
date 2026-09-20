@@ -5,25 +5,40 @@ specified in PRD section 4.1, loads all seven tables, and replaces mobiles
 and personal emails with deterministic synthetic values.
 
 Names in the source workbook are already synthetic (see PROJECT_OVERVIEW
-section 7), so they are preserved -- the demo personas are pinned to
-specific member IDs and stable names keep the demo identical every run.
-Contact details are regenerated regardless, because those are what PRD 11
-forbids deploying to a public URL.
+section 7), so they are preserved -- stable names keep the demo identical
+every run. Contact details are regenerated regardless, because those are
+what PRD 11 forbids deploying to a public URL.
+
+It also issues one account per member. The account carries no permissions:
+it carries a member_id, and the tier is derived from that member's role
+record by src.roles every time it is read. The demo_personas table this
+replaces did the opposite -- it typed four access levels in by hand and
+pinned each to a member, which is exactly the coupling of role and
+permission the app no longer has.
 
 Run:  python scripts/load_data.py
 """
 
 from __future__ import annotations
 
+import os
 import random
 import sqlite3
+import sys
 from pathlib import Path
 
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
-XLSX = ROOT / "data" / "JCI_Victoria_Member_Data.xlsx"
-DB = ROOT / "data" / "members.db"
+sys.path.insert(0, str(ROOT))
+
+from src import auth, derived  # noqa: E402
+
+# The workbook to load. Overridable so the President + MA upload page can
+# point the loader at a file a user just submitted, without that page having
+# to know anything about the schema below.
+XLSX = Path(os.environ.get("JCI_SOURCE_XLSX") or ROOT / "data" / "JCI_Victoria_Member_Data.xlsx")
+DB = Path(os.environ.get("JCI_DB") or ROOT / "data" / "members.db")
 
 PII_SEED = 20260919  # fixed so every run produces the same demo
 
@@ -35,6 +50,7 @@ DROP TABLE IF EXISTS oc_participation;
 DROP TABLE IF EXISTS projects;
 DROP TABLE IF EXISTS activity_log;
 DROP TABLE IF EXISTS demo_personas;
+DROP TABLE IF EXISTS accounts;
 
 CREATE TABLE members (
   member_id TEXT PRIMARY KEY,
@@ -90,9 +106,16 @@ CREATE TABLE activity_log (
   target_member_id TEXT, field_group TEXT, detail TEXT
 );
 
-CREATE TABLE demo_personas (
-  persona_key TEXT PRIMARY KEY, display_name TEXT,
-  role TEXT, member_id TEXT
+CREATE TABLE accounts (
+  username TEXT PRIMARY KEY,
+  member_id TEXT REFERENCES members(member_id),
+  display_name TEXT,
+  password_salt TEXT, password_hash TEXT,
+  is_enabled TEXT,
+  -- Denormalised for the sign-in screen and the log. The permission check
+  -- always re-derives from the member's role record, never from these.
+  roles TEXT, role_record TEXT,
+  permission_tier TEXT, governing_role TEXT
 );
 
 CREATE INDEX idx_events_member ON status_events(member_id);
@@ -231,9 +254,21 @@ def main() -> None:
         }
     )
 
-    personas = build_personas(members, oc)
-
     DB.unlink(missing_ok=True)
+    # Accounts need the derived role record, so they are built from the
+    # enriched frame rather than the raw sheet -- one code path with the
+    # exporter, which reads the same function.
+    accounts = auth.build_accounts(
+        derived.enrich(
+            {
+                "members": members,
+                "events": events,
+                "fees": fees,
+                "oc": oc,
+            }
+        )
+    )
+
     con = sqlite3.connect(DB)
     con.executescript(SCHEMA)
     for name, df in [
@@ -242,52 +277,21 @@ def main() -> None:
         ("fee_records", fees),
         ("oc_participation", oc),
         ("projects", projects),
-        ("demo_personas", personas),
+        ("accounts", accounts),
     ]:
         df.to_sql(name, con, if_exists="append", index=False)
         print(f"  {name:18} {len(df):>4} rows")
     con.commit()
     con.close()
     print(f"\nWrote {DB}")
-    print("\nDemo personas (PRD 14):")
-    print(personas.to_string(index=False))
-
-
-def build_personas(members: pd.DataFrame, oc: pd.DataFrame) -> pd.DataFrame:
-    """Pin the five demo personas to concrete member IDs (PRD 14)."""
-
-    def pick(mask, label):
-        hit = members[mask]
-        if hit.empty:
-            raise SystemExit(f"No member matched persona '{label}'")
-        row = hit.iloc[0]
-        return row["member_id"], f"{row['first_name']} {row['last_name']}"
-
-    chairs = set(oc[oc["project_role"] == "Chairman"]["member_id"])
-    rows = []
-    for key, mask, role in [
-        ("president", members["board_post_2026"] == "P", "President + MA"),
-        ("ma", members["board_post_2026"] == "MAD", "President + MA"),
-        ("finance", members["board_post_2026"] == "FD", "HS + FD"),
-        (
-            "chairman",
-            members["member_id"].isin(chairs) & members["board_post_2026"].isna(),
-            "Board / Chairman / SO",
-        ),
-        (
-            "member",
-            (members["member_class"] == "FM")
-            & (members["member_status"] == "Active")
-            & members["board_post_2026"].isna()
-            & ~members["member_id"].isin(chairs),
-            "Member",
-        ),
-    ]:
-        mid, name = pick(mask, key)
-        rows.append(
-            {"persona_key": key, "display_name": name, "role": role, "member_id": mid}
-        )
-    return pd.DataFrame(rows)
+    enabled = int((accounts["is_enabled"] == "Y").sum())
+    print(f"\nAccounts: {len(accounts)} issued, {enabled} enabled.")
+    print("Permission tier per account, derived from the role record:")
+    print(
+        accounts[accounts["is_enabled"] == "Y"]["permission_tier"]
+        .value_counts()
+        .to_string()
+    )
 
 
 if __name__ == "__main__":

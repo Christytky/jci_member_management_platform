@@ -17,13 +17,13 @@ TABLES = {
     "fees": "fee_records",
     "oc": "oc_participation",
     "projects": "projects",
-    "personas": "demo_personas",
+    "accounts": "accounts",
 }
 
 
 @lru_cache(maxsize=1)
 def get_frames() -> dict[str, pd.DataFrame]:
-    """dict of DataFrames, keys: members, events, fees, oc, projects, personas."""
+    """dict of DataFrames, keys: members, events, fees, oc, projects, accounts."""
     if not DB.exists():
         raise SystemExit(f"{DB} not found -- run: python scripts/load_data.py")
     con = sqlite3.connect(DB)

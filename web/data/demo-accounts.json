@@ -1,0 +1,66 @@
+[
+  {
+    "username": "xaviertam@vjc.org.hk",
+    "password": "Victoria@0036",
+    "display_name": "Xavier Tam",
+    "role_record": "P & BOD & FM",
+    "permission_tier": "President + MA",
+    "governing_role": "P"
+  },
+  {
+    "username": "rufusto@vjc.org.hk",
+    "password": "Victoria@0007",
+    "display_name": "Rufus To",
+    "role_record": "MAD & BOD & SO & FM",
+    "permission_tier": "President + MA",
+    "governing_role": "MAD"
+  },
+  {
+    "username": "mavistsang@vjc.org.hk",
+    "password": "Victoria@0011",
+    "display_name": "Mavis Tsang",
+    "role_record": "HS & BOD & SO & FM",
+    "permission_tier": "HS + FD",
+    "governing_role": "HS"
+  },
+  {
+    "username": "mankitlee@vjc.org.hk",
+    "password": "Victoria@0056",
+    "display_name": "Man Kit Lee",
+    "role_record": "FD & BOD & SO & FM",
+    "permission_tier": "HS + FD",
+    "governing_role": "FD"
+  },
+  {
+    "username": "rexto@vjc.org.hk",
+    "password": "Victoria@0051",
+    "display_name": "Rex To",
+    "role_record": "SMO & FM & OC",
+    "permission_tier": "Board / Chairman / SO",
+    "governing_role": "SMO"
+  },
+  {
+    "username": "lesterpoon@vjc.org.hk",
+    "password": "Victoria@0012",
+    "display_name": "Lester Poon",
+    "role_record": "BAD & BOD & SO & FM",
+    "permission_tier": "Board / Chairman / SO",
+    "governing_role": "BAD"
+  },
+  {
+    "username": "ingrid.szeto@vjc.org.hk",
+    "password": "Victoria@0065",
+    "display_name": "Ingrid Szeto",
+    "role_record": "PM",
+    "permission_tier": "Member",
+    "governing_role": "PM"
+  },
+  {
+    "username": "kitty.lui@vjc.org.hk",
+    "password": "Victoria@0071",
+    "display_name": "Kitty Lui",
+    "role_record": "PM",
+    "permission_tier": "Member",
+    "governing_role": "PM"
+  }
+]

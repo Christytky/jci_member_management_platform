@@ -20,7 +20,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from src import alerts, db, derived, health  # noqa: E402
-from src import permissions as P  # noqa: E402
+from src import permissions as P
+from src import roles as R  # noqa: E402
 
 EXPECTED_ALERTS = {1: 4, 2: 10, 3: 6, 4: 23, 5: 5, 6: 7, 7: 8}
 EXPECTED_ROWS = {
@@ -109,18 +110,101 @@ def main() -> None:
             "mobile": str(real["mobile"]),
             "personal email": str(real["personal_email"]),
         }
-        blob = (out / "payload.chairman.json").read_text()
+        blob = (out / "payload.leader.json").read_text()
         for label, value in secrets.items():
             check(value not in blob, f"Chairman payload has no {label}")
         gov = frames["members"].set_index("member_id").loc[PROBE_ID, "status_reason"]
         if isinstance(gov, str) and gov:
             check(gov not in blob, "Chairman payload has no removal reason")
 
-        pres = json.loads((out / "payload.president.json").read_text())
-        check(len(pres["members"]) == 150, "President payload has all members")
-        check(pres["dashboard"] is not None, "President payload carries the dashboard")
-        chair_p = json.loads((out / "payload.chairman.json").read_text())
-        check(chair_p["dashboard"] is None, "Chairman payload carries no dashboard")
+        pres = json.loads((out / "payload.admin.json").read_text())
+        check(len(pres["members"]) == 150, "Admin payload has all members")
+        check(pres["dashboard"] is not None, "Admin payload carries the dashboard")
+        chair_p = json.loads((out / "payload.leader.json").read_text())
+        check(chair_p["dashboard"] is None, "Leader payload carries no dashboard")
+
+        # The circular age diagram reads exact ages, so it must be absent
+        # from the file of a tier that only gets five-year bands.
+        sec = json.loads((out / "payload.secretariat.json").read_text())
+        check("age_rings" in pres["dashboard"], "Admin dashboard carries the age rings")
+        check(
+            "age_rings" not in (sec["dashboard"] or {}),
+            "HS + FD dashboard has no age rings (personal is masked)",
+        )
+        check(
+            "growth_tree" in pres["dashboard"],
+            "Admin dashboard carries the chapter growth tree",
+        )
+        check(
+            "growth_tree" not in (sec["dashboard"] or {}),
+            "HS + FD payload has no growth tree",
+        )
+
+    print("\nRoles and tiers")
+    check(not R.unknown_roles(enriched), "every role code is in the catalogue",
+          ", ".join(sorted(R.unknown_roles(enriched))) or "none")
+    # The rule the whole model rests on: the tier equals the highest role held.
+    bad = [
+        row["member_id"]
+        for _, row in enriched.iterrows()
+        if row["permission_tier"] != max(
+            (R.tier_of(c) for c in R.roles_for(row)), key=lambda t: R.TIER_RANK[t]
+        )
+    ]
+    check(not bad, "every tier equals the highest role held", f"{len(bad)} mismatched")
+    # A member holding a post above their class is the case that would break
+    # if the first role, or the class, were used instead of the highest.
+    lifted = enriched[enriched["tier_rank"] > 1]
+    check(len(lifted) > 0, "members are lifted above Member by a post",
+          f"{len(lifted)} of {len(enriched)}")
+
+    print("\nAccounts")
+    accounts = frames["accounts"]
+    check(len(accounts) == len(enriched), "one account per member", f"{len(accounts)}")
+    check(
+        accounts["username"].str.lower().duplicated().sum() == 0,
+        "usernames are unique",
+    )
+    check(
+        accounts["password_salt"].duplicated().sum() == 0,
+        "every account has its own salt",
+    )
+    check(
+        not accounts.columns.str.contains("password_plain").any()
+        and accounts["password_hash"].str.len().eq(64).all(),
+        "passwords are stored only as PBKDF2 hashes",
+    )
+    departed = accounts[accounts["is_enabled"] == "N"]
+    check(
+        len(departed) > 0
+        and enriched.set_index("member_id")
+        .loc[departed["member_id"], "member_status"]
+        .isin(["Removed", "Resigned"])
+        .all(),
+        "removed and resigned members cannot sign in",
+        f"{len(departed)} disabled",
+    )
+    # An account is a member_id, not a permission. If these disagree the
+    # login path and the payload path have drifted apart.
+    joined = accounts.set_index("member_id").join(
+        enriched.set_index("member_id")[["permission_tier"]], rsuffix="_derived"
+    )
+    check(
+        (joined["permission_tier"] == joined["permission_tier_derived"]).all(),
+        "account tiers match the derived tiers",
+    )
+
+    print("\nPer-member payloads (Member tier)")
+    member_dir = out / "members"
+    files = sorted(member_dir.glob("*.json")) if member_dir.exists() else []
+    check(len(files) > 0, "one payload per Member-tier member", f"{len(files)} files")
+    leaked = []
+    for f in files[:40]:  # a sample; all 111 would be slow and prove the same
+        data = json.loads(f.read_text())
+        if len(data["members"]) != 1 or data["members"][0]["member_id"] != f.stem:
+            leaked.append(f.stem)
+    check(not leaked, "each Member file holds exactly its own record",
+          ", ".join(leaked[:3]) or "sampled 40")
 
     print("\nPII (PRD 11)")
     mob = frames["members"]["mobile"].astype(str)

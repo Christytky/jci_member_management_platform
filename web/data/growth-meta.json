@@ -1,0 +1,78 @@
+{
+  "ladder": [
+    {
+      "code": "PM",
+      "label": "Provisional Member",
+      "rank": 1
+    },
+    {
+      "code": "FM",
+      "label": "Full Member",
+      "rank": 2
+    },
+    {
+      "code": "SM",
+      "label": "Senior Member",
+      "rank": 3
+    }
+  ],
+  "event_kinds": {
+    "Joined as PM": {
+      "kind": "rung",
+      "label": "Joined as Provisional Member"
+    },
+    "Inducted": {
+      "kind": "rung",
+      "label": "Inducted as Full Member"
+    },
+    "Transferred to Senior Member": {
+      "kind": "rung",
+      "label": "Transferred to Senior Member"
+    },
+    "Joined Board of Directors": {
+      "kind": "appointment",
+      "label": "Joined the Board of Directors"
+    },
+    "Appointed as Officer": {
+      "kind": "appointment",
+      "label": "Appointed an Officer"
+    },
+    "Appointed Chairman of a project": {
+      "kind": "appointment",
+      "label": "Appointed Project Chairman"
+    },
+    "Appointed SO of a project": {
+      "kind": "appointment",
+      "label": "Appointed Supervising Officer"
+    },
+    "FM Requirement Completed": {
+      "kind": "milestone",
+      "label": "Completed the FM requirement"
+    },
+    "OC Team Joined (counts toward FM requirement)": {
+      "kind": "milestone",
+      "label": "Joined an OC team"
+    },
+    "FM Requirement Overdue": {
+      "kind": "setback",
+      "label": "Missed the FM deadline"
+    },
+    "Tabled for BOD Motion": {
+      "kind": "setback",
+      "label": "Tabled for a BOD motion"
+    },
+    "BOD Motion Approved - Removed": {
+      "kind": "setback",
+      "label": "Removed by BOD motion"
+    },
+    "BOD Motion Approved - Resigned": {
+      "kind": "setback",
+      "label": "Resigned, approved by BOD"
+    }
+  },
+  "promotion_kinds": [
+    "rung",
+    "appointment"
+  ],
+  "senior_age": 40
+}

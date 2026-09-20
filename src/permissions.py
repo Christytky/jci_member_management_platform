@@ -7,11 +7,19 @@ visibility everywhere at once.
 The contract that matters: HIDDEN means the column is DROPPED from the
 dataframe, so the value never reaches the browser. It is not styled out.
 A judge can open devtools and confirm it.
+
+What this module does NOT do is decide who is what. The four strings below
+are permission TIERS, and a member's tier is derived from their role record
+by src.roles -- the highest role they hold wins. A member listed as "FM &
+MA" reaches this module as "President + MA" and is handed MA's columns. See
+src/roles.py for the catalogue that makes that mapping.
 """
 
 from __future__ import annotations
 
 import pandas as pd
+
+from src import roles as R
 
 FULL, EDIT, READ, MASKED, HIDDEN, OWN = "full", "edit", "read", "masked", "hidden", "own"
 
@@ -23,6 +31,10 @@ FIELD_GROUPS: dict[str, list[str]] = {
         "senior_designation", "board_post_2026", "is_bod_2026",
         "national_post_2026", "senior_transfer_year", "years_to_senior",
         "referred_by", "is_active",
+        # The role record and the tier it earns. Identity, not analytics:
+        # who holds which post is published to the chapter, and the tier is
+        # only that fact restated.
+        "roles", "role_record", "permission_tier", "governing_role", "tier_rank",
     ],
     "contact": ["mobile", "personal_email", "jci_email", "whatsapp_groups"],
     "personal": ["date_of_birth", "gender", "age", "age_calendar_year"],
@@ -43,7 +55,10 @@ FIELD_GROUPS: dict[str, list[str]] = {
     ],
 }
 
-ROLES = ["President + MA", "HS + FD", "Board / Chairman / SO", "Member"]
+# The tiers, highest first. Imported from the role catalogue so there is one
+# vocabulary rather than two lists that can drift apart.
+ROLES = list(R.TIERS)
+TIERS = ROLES  # the honest name; ROLES is kept for existing callers
 
 MATRIX: dict[str, dict[str, str]] = {
     "identity":     {"President + MA": FULL, "HS + FD": FULL,   "Board / Chairman / SO": FULL,   "Member": OWN},
@@ -55,15 +70,25 @@ MATRIX: dict[str, dict[str, str]] = {
     "analytics":    {"President + MA": FULL, "HS + FD": READ,   "Board / Chairman / SO": HIDDEN, "Member": OWN},
 }
 
-# Pages a role may open at all (PRD 6.2, 6.6, 6.7).
+# Pages a tier may open at all (PRD 6.2, 6.6, 6.7).
 PAGE_ACCESS = {
-    "dashboard": ["President + MA", "HS + FD"],
-    "alerts":    ["President + MA", "HS + FD"],
+    "dashboard": [R.ADMIN, R.SECRETARIAT],
+    "alerts":    [R.ADMIN, R.SECRETARIAT],
     "directory": ROLES,
     "member":    ROLES,
-    "activity":  ["President + MA"],
-    "export":    ["President + MA", "HS + FD"],
+    "activity":  [R.ADMIN],
+    "export":    [R.ADMIN, R.SECRETARIAT],
+    # The chapter-wide growth tree reads every member's referral line and
+    # class history at once, which is a President-and-MA view by definition.
+    "growth":    [R.ADMIN],
+    # "P roles and MA Teams can upload and update member databases" -- this
+    # is the only write path in the app, and the only tier that holds it.
+    "upload":    [R.ADMIN],
 }
+
+# Pages that change stored data rather than read it. Listed separately so a
+# read guard can never be mistaken for a write guard.
+WRITE_PAGES = ("upload",)
 
 FIELD_TO_GROUP = {f: g for g, fields in FIELD_GROUPS.items() for f in fields}
 
@@ -79,6 +104,20 @@ def access(role: str, field_group: str) -> str:
 
 def can_open(role: str, page: str) -> bool:
     return role in PAGE_ACCESS.get(page, [])
+
+
+def can_write(role: str) -> bool:
+    """True only for the tier that owns the member database."""
+    return role == R.ADMIN
+
+
+def tier_for_member(row) -> str:
+    """The tier a member's role record earns them. The single entry point.
+
+    Every caller that needs "what may this person see" goes through here, so
+    the highest-role rule is applied in exactly one place.
+    """
+    return R.tier_for(R.roles_for(row))
 
 
 def mask_dob(value) -> str | None:
@@ -171,9 +210,25 @@ def hidden_groups(role: str) -> list[str]:
     return [g for g in FIELD_GROUPS if not can_see(role, g)]
 
 
+def masked_groups(role: str) -> list[str]:
+    """Groups present in the payload but blurred -- age bands, not birthdays.
+
+    Distinct from hidden, and the distinction is not cosmetic: a hidden group
+    is absent from the file, a masked one is there in a reduced form. The
+    banner has to say both, or a tier holding no hidden groups is told it has
+    "full access" while the field count beside it says otherwise.
+    """
+    return [g for g in FIELD_GROUPS if access(role, g) == MASKED]
+
+
 def describe(role: str) -> str:
     """One line for the role banner (PRD 6.1)."""
-    hidden = hidden_groups(role)
-    if not hidden:
+    hidden, masked = hidden_groups(role), masked_groups(role)
+    parts = []
+    if hidden:
+        parts.append("hidden: " + ", ".join(hidden))
+    if masked:
+        parts.append("masked: " + ", ".join(masked))
+    if not parts:
         return "Full access to all member fields."
-    return "Hidden by your access level: " + ", ".join(hidden) + "."
+    return "By your access level — " + "; ".join(parts) + "."

@@ -1,8 +1,9 @@
 import "server-only";
 
-import { cookies } from "next/headers";
 import fs from "node:fs/promises";
 import path from "node:path";
+
+import { getSession, type Session, type Tier } from "@/lib/auth";
 
 /**
  * Server-only payload access.
@@ -10,8 +11,14 @@ import path from "node:path";
  * The "server-only" import above is load-bearing: it makes the build fail
  * if any client component ever imports this file. That is the guardrail
  * behind PRD 11's requirement that hidden fields never reach the browser.
- * Each persona's JSON was already filtered by permissions.apply() at build
- * time, so a role that cannot see a field has no file containing it.
+ * Each file was already filtered by permissions.apply() at build time, so a
+ * tier that cannot see a field has no file containing it.
+ *
+ * Which file a request gets is decided by the signed-in user's PERMISSION
+ * TIER, and that tier came from their role record -- highest role wins. A
+ * member on the Member tier is served a file holding exactly one row: their
+ * own. Not a filtered view of everyone's; a file that never contained
+ * anyone else.
  */
 
 export type Member = {
@@ -52,6 +59,12 @@ export type Member = {
   bod_motion_result?: string | null;
   status_reason?: string | null;
   remark?: string | null;
+  // role record and the tier it earns (identity group)
+  roles?: string | null;
+  role_record?: string | null;
+  permission_tier?: string | null;
+  governing_role?: string | null;
+  tier_rank?: number | null;
   // analytics (absent for Board/Chairman)
   health_score?: number | null;
   health_band?: string | null;
@@ -114,24 +127,88 @@ export type OcRow = {
   counts_toward_fm: string;
 };
 
+/** One class's average age against the 40-year senior-transfer ceiling. */
+export type AgeRing = {
+  member_class: string;
+  label: string;
+  count: number;
+  average_age: number | null;
+  /** 0-1. The arc length, already capped so it cannot overshoot the ring. */
+  pct_of_cap: number;
+  years_headroom: number | null;
+  oldest: number | null;
+  youngest: number | null;
+  within_two_years: number;
+  cap: number;
+};
+
+export type TreeNode = {
+  member_id: string;
+  name: string | null;
+  member_class: string | null;
+  member_status: string | null;
+  date_joined: string | null;
+  role_record: string | null;
+  permission_tier: string | null;
+  referred_by: string | null;
+  depth: number;
+  direct_recruits: number;
+  line_size: number;
+};
+
+export type GrowthTree = {
+  nodes: TreeNode[];
+  roots: string[];
+  stats: {
+    total: number;
+    with_referrer: number;
+    recruiters: number;
+    max_depth: number;
+    largest_line: number;
+  };
+  top_recruiters: TreeNode[];
+};
+
 export type Dashboard = {
   kpis: Record<string, number>;
   movement: { year: number; joined: number; inducted: number; senior: number; departed: number }[];
   funnel: { stage: string; count: number }[];
   departures: { reason: string; count: number }[];
   needs_attention: { member_id: string; name: string; score: number; reasons: string[] }[];
+  /** Present only for a tier with unmasked access to the personal group. */
+  age_rings?: AgeRing[];
+  /** Present only in the file served to a tier that may open /growth. */
+  growth_tree?: GrowthTree;
+};
+
+export type Access = {
+  tier: Tier;
+  tier_rank: number;
+  visible_groups: string[];
+  hidden_groups: string[];
+  /** Present but blurred — age bands rather than dates of birth. */
+  masked_groups: string[];
+  banner: string;
+  pages: Record<string, boolean>;
+  can_write: boolean;
+  column_count: number;
+  total_fields: number;
 };
 
 export type Payload = {
-  persona: { key: string; name: string; role: string; member_id: string; post: string };
-  as_of: string;
-  access: {
-    visible_groups: string[];
-    hidden_groups: string[];
-    banner: string;
-    pages: Record<string, boolean>;
-    column_count: number;
+  /** The signed-in user. Not a persona -- an account. */
+  viewer: {
+    username: string;
+    name: string;
+    member_id: string;
+    tier: Tier;
+    roles: string[];
+    role_record: string;
+    governing_role: string | null;
+    post: string;
   };
+  as_of: string;
+  access: Access;
   members: Member[];
   alerts: Alert[];
   events: StatusEvent[];
@@ -141,46 +218,98 @@ export type Payload = {
   dashboard: Dashboard | null;
 };
 
-export type PersonaSummary = {
-  key: string;
-  name: string;
-  role: string;
-  member_id: string;
-  post: string;
+export type TierSummary = {
+  tier: Tier;
+  slug: string;
+  rank: number;
   columns: number;
   members: number;
   alerts: number;
   hidden: string[];
+  pages: string[];
+  roles: string[];
 };
 
 const DATA_DIR = path.join(process.cwd(), "data");
-const DEFAULT_PERSONA = "president";
 
-const cache = new Map<string, Payload>();
+/** Tier -> file stem. The Member tier has no shared file, by design. */
+const TIER_SLUG: Record<Tier, string> = {
+  "President + MA": "admin",
+  "HS + FD": "secretariat",
+  "Board / Chairman / SO": "leader",
+  Member: "member",
+};
 
-export async function listPersonas(): Promise<PersonaSummary[]> {
-  const raw = await fs.readFile(path.join(DATA_DIR, "personas.json"), "utf8");
-  return JSON.parse(raw) as PersonaSummary[];
+const cache = new Map<string, Omit<Payload, "viewer">>();
+
+export async function listTiers(): Promise<TierSummary[]> {
+  const raw = await fs.readFile(path.join(DATA_DIR, "tiers.json"), "utf8");
+  return JSON.parse(raw) as TierSummary[];
 }
 
-/** The persona key currently selected, from the cookie the switcher sets. */
-export async function currentPersonaKey(): Promise<string> {
-  const jar = await cookies();
-  return jar.get("persona")?.value ?? DEFAULT_PERSONA;
-}
-
-export async function getPayload(key?: string): Promise<Payload> {
-  const personaKey = key ?? (await currentPersonaKey());
-  const personas = await listPersonas();
-  const safe = personas.some((p) => p.key === personaKey) ? personaKey : DEFAULT_PERSONA;
-
-  const hit = cache.get(safe);
-  if (hit) return hit;
-
-  const raw = await fs.readFile(path.join(DATA_DIR, `payload.${safe}.json`), "utf8");
-  const parsed = JSON.parse(raw) as Payload;
-  cache.set(safe, parsed);
+async function readJson<T>(...segments: string[]): Promise<T> {
+  const key = segments.join("/");
+  const cached = cache.get(key);
+  if (cached) return cached as T;
+  const raw = await fs.readFile(path.join(DATA_DIR, ...segments), "utf8");
+  const parsed = JSON.parse(raw) as T;
+  cache.set(key, parsed as Omit<Payload, "viewer">);
   return parsed;
+}
+
+/**
+ * Thrown when a page is rendered without a session. Pages call
+ * requirePayload(), which redirects instead -- this exists so that a future
+ * caller that forgets fails loudly rather than rendering an empty shell.
+ */
+export class NotSignedIn extends Error {
+  constructor() {
+    super("No signed-in user");
+    this.name = "NotSignedIn";
+  }
+}
+
+/**
+ * The payload for the signed-in user, chosen by their permission tier.
+ *
+ * A Member is served data/members/<their id>.json. Note what is NOT
+ * happening: there is no filter here, no "where member_id equals". The file
+ * itself contains one member, because permissions.apply() built it that way
+ * at export time. A bug in this function cannot widen it.
+ */
+export async function getPayloadFor(session: Session): Promise<Payload> {
+  const base =
+    session.tier === "Member"
+      ? await readJson<Omit<Payload, "viewer">>("members", `${session.member_id}.json`)
+      : await readJson<Omit<Payload, "viewer">>(`payload.${TIER_SLUG[session.tier]}.json`);
+
+  const self = base.members.find((m) => m.member_id === session.member_id);
+
+  return {
+    ...base,
+    viewer: {
+      username: session.username,
+      name: session.display_name,
+      member_id: session.member_id,
+      tier: session.tier,
+      roles: session.roles,
+      role_record: session.role_record,
+      governing_role: session.governing_role,
+      post: self?.board_post_2026 || session.governing_role || "Member",
+    },
+  };
+}
+
+export async function getPayload(): Promise<Payload> {
+  const session = await getSession();
+  if (!session) throw new NotSignedIn();
+  return getPayloadFor(session);
+}
+
+/** The payload, or null when nobody is signed in. For layouts that redirect. */
+export async function tryGetPayload(): Promise<Payload | null> {
+  const session = await getSession();
+  return session ? getPayloadFor(session) : null;
 }
 
 export async function getMember(id: string): Promise<{ payload: Payload; member: Member | null }> {
@@ -188,7 +317,12 @@ export async function getMember(id: string): Promise<{ payload: Payload; member:
   return { payload, member: payload.members.find((m) => m.member_id === id) ?? null };
 }
 
-/** True when this role may open the page at all (PRD 6.2, 6.6, 6.7). */
+/** True when this tier may open the page at all (PRD 6.2, 6.6, 6.7). */
 export function canOpen(payload: Payload, page: string): boolean {
   return payload.access.pages[page] === true;
+}
+
+/** True only for the tier that owns the member database (President + MA). */
+export function canWrite(payload: Payload): boolean {
+  return payload.access.can_write === true;
 }

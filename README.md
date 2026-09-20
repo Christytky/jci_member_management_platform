@@ -1,178 +1,397 @@
-# JCI Victoria — Smart Member Growth Tracker
+# Smart Member Growth Tracker
 
-One live member record, a full movement history, and access granted by post
-rather than by sending a file.
+**A membership system for a JCI chapter that replaces the shared spreadsheet — one live member record, a complete movement history, and access granted by post instead of by emailing a file.**
 
-Built for the JCI Innovation Hackathon. Read `PROJECT_OVERVIEW.md` first if
-you are new to JCI, then `PRD_Smart_Member_Growth_Tracker.md` for the spec.
+Built for the JCI Innovation Hackathon, using JCI Victoria's membership data as the working case.
 
----
-
-## Stack, and why it is not Streamlit
-
-The PRD specifies Streamlit. It was changed to Next.js because the target
-design (a dense, branded dashboard) is not reachable in Streamlit without
-CSS hacks that hang off Streamlit's internal class names and break between
-versions — a bad thing to discover at hour 19 of 24.
-
-The Python was kept. All the logic that matters — derived fields, health
-score, the seven alert rules, the permission matrix — is still pandas, and
-it is still the thing that gets verified. What changed is only what renders
-it.
-
-```
-Excel ──▶ SQLite ──▶ pandas logic ──▶ 5 pre-filtered JSON payloads ──▶ Next.js
-         (schema)   (derived/health/     (one per demo persona)      (server
-                     alerts/permissions)                              components)
-```
-
-There is no API, no database at runtime and no second deployment. The
-Python runs at build time; the web app reads JSON in server components.
-
-**Why that preserves the privacy claim.** PRD 11 requires that hidden
-fields be absent from the data passed to the page, not styled out. Each
-persona's JSON is filtered through `permissions.apply()` before it is
-written, and Next.js server components render it on the server. A field
-hidden from a role is absent from that role's file, absent from the server
-render, and absent from the browser. Open developer tools in front of a
-judge and it is not there. `scripts/verify.py` asserts this on every run.
+> **Live demo:** not yet deployed — see [Deploying](#deploying) to run your own.
+> Until then, [Quick start](#quick-start) gets it running locally in about two minutes.
 
 ---
 
-## Running it
+## The problem
 
-Two commands, from a clean clone.
+A JCI chapter of 150 members is typically run out of one Excel workbook. That workbook has to answer questions it was never built for:
+
+- *Which Prospective Members are past their six-month induction deadline?*
+- *Who hasn't paid this year, and who also owes for last year?*
+- *Which motions has the board been sitting on for two months?*
+- *Who is quietly disengaging — no project role, barely attending?*
+
+Answering any of those means filtering by hand. And sharing the answer means sending the whole file, which means sending every member's date of birth, mobile number, fee arrears and removal reason to whoever needed one column.
+
+This project takes the same data and makes it answer those questions itself — while giving each officer only the fields their post actually requires.
+
+---
+
+## What it does
+
+| | |
+|---|---|
+| **Chapter dashboard** | Five KPIs, plus a movement chart covering every join, induction, senior transfer and departure since 1965 — history the spreadsheet holds but never shows. |
+| **Seven alert rules** | 63 open items across the chapter right now: requirements due and overdue, members ready for induction, unpaid fees, senior transfers coming up, disengaged members, and motions still pending. Each names the post that owns it. |
+| **Member health score** | A 0–100 score per member from five weighted signals, with the reasons in plain language — *"2026 fee unpaid, no project role in 2026"* — not just a number. |
+| **Member directory & detail** | Every member's record, their journey timeline, and their health breakdown — filtered to what your post may see. |
+| **Growth tree** | The chapter as a referral lineage — who brought whom in, how deep each line runs, and who is actually growing the chapter. President and MA only. |
+| **Promotion history** | Every member's climb, PM → FM → SM, with the gap between each step written on the rail. Four years between joining and induction is a member the chapter nearly lost, and it is invisible in a column of dates. |
+| **Age against the 40-year ceiling** | A circular diagram of FM and PM average age against the age at which a member transfers to Senior — and how many transfer out inside two years. |
+| **Individual logins** | One account per member. Access is derived from the posts on their record, never chosen from a dropdown. |
+| **Role-scoped CSV export** | The export contains exactly the columns you could see on screen. A Chairman's export cannot leak a field a Chairman cannot read. |
+| **Activity log** | Every sign-in, restricted-field view, export and upload, recorded with who, what and when — under a person's name, not a persona's. |
+
+---
+
+## The idea worth stealing: permissions that survive devtools
+
+Most dashboards implement "hidden" as *rendered but not displayed*. The data is in the page; CSS just covers it. Anyone who opens developer tools can read it.
+
+This build does it differently. Field-level permissions are applied **in Python, before the data is ever written to a file** — and the app renders those files in React Server Components.
+
+```
+                                    permissions.apply()
+                                            │
+Excel ──▶ SQLite ──▶ pandas logic ──▶ pre-filtered JSON ───▶ Next.js
+        (8 tables)  derived fields    3 tier files +         server
+                    health score      1 per member on        components
+                    alert rules       the Member tier
+                    roles -> tiers
+                    permissions
+```
+
+So when the permission matrix says a Chairman cannot see fee status, the consequence is not a hidden `<div>`. The `fee_status_current` column is **dropped from the DataFrame**, never written to `payload.chairman.json`, never present in the server render, and never sent to the browser. There is nothing in devtools to find.
+
+The concrete difference, same 150 members, different post:
+
+| Signed in as | Role record | Access tier | Columns | Members | Alerts |
+|---|---|---|---:|---:|---:|
+| Xavier Tam | `P & BOD & FM` | President + MA | **58** | 150 | 63 |
+| Adrian Shum | `MAO & FM` | President + MA | **58** | 150 | 63 |
+| Mavis Tsang | `HS & BOD & SO & FM` | HS + FD | **51** | 150 | 42 |
+| Oscar Szeto | `Chairman & FM` | Board / Chairman / SO | **30** | 150 | 0 |
+| Ka Chun Siu | `FM` | Member | **54** | **1** (own record) | 0 |
+
+A Member on the bottom row sees more columns than a Chairman above them, and that is correct: they see everything about *themselves* and nothing about anyone else. The file they are served contains one row.
+
+Two guardrails keep it honest:
+
+- `web/lib/data.ts` imports `server-only`, so the build **fails** if a client component ever imports payload access.
+- `scripts/verify.py` reads the real values for a probe member out of SQLite and asserts those exact strings do not appear anywhere in the Chairman's JSON file.
+- A Member's payload is not a filtered view of everyone — it is `web/data/members/<their id>.json`, a file that never contained anyone else. A bug in the request path cannot widen it.
+
+---
+
+## Roles are not permissions
+
+A member's **role record** lists every post they hold: `MAD & BOD & SO & FM`. Their **access tier** is one of four, and it is derived — **the highest role held wins**.
+
+```
+role record   MAD & BOD & SO & FM
+                │     │    │    └── FM   -> Member                (rank 1)
+                │     │    └─────── SO   -> Board / Chairman / SO (rank 2)
+                │     └──────────── BOD  -> Board / Chairman / SO (rank 2)
+                └────────────────── MAD  -> President + MA        (rank 4)  ← wins
+access tier   President + MA
+```
+
+So a record reading `FM & MA` is an **MA** on this system, not a Full Member — the tier is the highest of the roles held, never the first one listed and never the membership class. 39 of the 150 members hold a post that lifts them above their class; each one is a case where reading the first role, or the class, would have been wrong.
+
+Everything follows from that single derivation:
+
+- [`src/roles.py`](src/roles.py) holds the catalogue — one row per post a member can hold, each pinned to exactly one tier. It is the only place a post grants access; there is no second list that could disagree with it.
+- Adding a post to a member's record changes their access at their next page load. Nothing else is edited, and no administrator types a permission anywhere.
+- An unrecognised post code falls back to the Member tier — fails safe — and `verify.py` and the upload checker both name it rather than letting a new board post go unnoticed for a year.
+
+The sign-in screen and the banner show both halves side by side, always: `P & BOD & FM → President + MA via P`. The derivation is the explanation.
+
+---
+
+## Individual logins
+
+Every member has an account. It carries a `member_id` and **no permissions of its own** — the tier is re-read from the role record on every request, so a promotion takes effect immediately and a revoked post narrows access immediately, with no cookie to reissue.
+
+- Username is the member's JCI Victoria address; passwords are stored as PBKDF2-HMAC-SHA256 (120,000 rounds) with a per-account salt.
+- Sign-in failures are undifferentiated — a wrong password, an unknown address and a disabled account return the same message, so the form cannot be used to enumerate who is in the chapter.
+- Removed and resigned members keep their record but cannot sign in. 140 of 150 accounts are enabled.
+- The session cookie is HMAC-signed, `HttpOnly`, and holds a username and an expiry — never a permission. A tampered, swapped or expired cookie lands on `/login`.
+
+This is what the old "viewing as" dropdown could never do. It could demonstrate the access model but not enforce it, and the activity log could only ever record *which persona was selected* — not who selected it. The Actor column now names a person.
+
+Set `JCI_SESSION_SECRET` in production; the app refuses to issue a session without it.
+
+---
+
+## Who can write
+
+**Only the President and the MA team** — the `President + MA` tier — can upload and replace the member database, at `/upload`. Not a flag on an account: an MAO whose record reads `MAO & FM` reaches that page, and a Vice President whose record reads `BOD & VP & FM` does not.
+
+Uploading is two steps, never one. A submitted workbook is **staged and checked** — sheet by sheet, row counts, missing columns, duplicate member IDs, unrecognised class or status values, and role codes the catalogue does not know — and nothing on disk changes. A second, separate action **applies** it: loads the workbook, recomputes every derived field, re-derives every tier, and rebuilds every payload. That last step is not optional, because the payloads *are* the permission boundary; a database that has moved on from them is one whose access rules are stale.
+
+The server action re-checks the tier itself rather than trusting that a form was rendered — a server action is a POST endpoint, and a page not drawing a button is not an access control.
+
+---
+
+## Quick start
+
+**Requirements:** Python 3.11+ and Node 20+.
 
 ```bash
-# 1. Build the data (Python 3.11+)
+git clone <your-fork-url> jci-member-tracker
+cd jci-member-tracker
+
+# 1. Build the data
 pip install -r requirements.txt
 python scripts/load_data.py      # Excel  -> data/members.db
-python scripts/export_json.py    # SQLite -> web/data/payload.*.json
-python scripts/verify.py         # 30 acceptance checks, exits 1 on failure
+python scripts/export_json.py    # SQLite -> web/data/payload.*.json + members/*.json
+python scripts/verify.py         # 47 acceptance checks, exits 1 on failure
 
-# 2. Run the app (Node 20+)
+# 2. Run the app
 cd web
 npm install
 npm run dev                      # http://localhost:3000
 ```
 
-`data/members.db` and `web/data/*.json` are committed, so the app runs
-without the Python step. Re-run the Python only when the source workbook or
-the logic changes.
+`data/members.db` and `web/data/*.json` are committed, **so you can skip step 1 entirely** and go straight to `npm install`. Re-run the Python only when the source workbook or the logic changes.
+
+### Signing in
+
+The app opens on `/login`. Expand **Demonstration logins** for seeded accounts across all four tiers — click one to fill the form:
+
+| Account | Role record | Tier | Password |
+|---|---|---|---|
+| `xaviertam@vjc.org.hk` | `P & BOD & FM` | President + MA | `Victoria@0036` |
+| `mavistsang@vjc.org.hk` | `HS & BOD & SO & FM` | HS + FD | `Victoria@0011` |
+| `oscar.szeto@vjc.org.hk` | `Chairman & FM` | Board / Chairman / SO | `Victoria@0003` |
+| `kachun.siu@vjc.org.hk` | `FM` | Member | `Victoria@0001` |
+
+Every account follows `Victoria@<last four of member id>`. The panel is synthetic-data-only — set `JCI_DEMO_ACCOUNTS=0` and rebuild the payloads to ship an empty list.
+
+### Exploring the four tiers
+
+Open a member record as **Xavier Tam**, then sign in as **Oscar Szeto** and open the same record: date of birth, fee status, motion history and health score are gone from the page — and from the payload behind it. Then sign in as the President and open the **Activity log** to see the rows those sign-ins and clicks just created, each under a person's name.
+
+Each tier also has a different navigation: Chairman and Member have no Dashboard and no Alerts page, only President + MA can open the Activity log, the Growth tree and the member-database upload, and the age rings are absent from the HS + FD dashboard entirely — an average age is still an age, and that tier holds masked access to the personal group.
+
+---
+
+## How the logic works
+
+All four rule systems live in `src/`, in pandas, roughly 700 lines total. Each is a small module with its constants at the top, so a chapter can retune it without reading the code.
+
+### Derived fields — [`src/derived.py`](src/derived.py)
+
+Stored fields are facts; everything computed lives here and is recalculated on every read, never written back. That is what stops the record going stale the way a spreadsheet column does. Age, membership years, FM requirement deadline and status, OC teams counted, project role, senior transfer year, fee status, recency and WhatsApp group membership are all derived.
+
+The reference date is pinned so every run and every machine produces an identical demo:
+
+```bash
+JCI_AS_OF=2026-09-19 python scripts/export_json.py   # the default; override to time-travel
+```
+
+### Health score — [`src/health.py`](src/health.py)
+
+```python
+WEIGHTS = {"fee": 0.30, "attendance": 0.25, "role": 0.20, "recency": 0.15, "compliance": 0.10}
+```
+
+One dict, so *"the weights are configurable per chapter"* is a fact rather than a claim. Bands are Healthy ≥ 70, Watch ≥ 40, At risk below. Senior Members are not project-eligible, so they render `N/A` rather than being penalised by a rule that does not apply to them.
+
+### Alert rules — [`src/alerts.py`](src/alerts.py)
+
+| # | Rule | Owner | Fires |
+|---|---|---|---:|
+| 1 | Requirement due soon — deadline within 60 days, under 2 OC teams | MAO | 4 |
+| 2 | Requirement overdue — deadline passed, under 2 OC teams | MAD | 10 |
+| 3 | Ready for induction — requirement met 14+ days ago, not inducted | HS | 6 |
+| 4 | Fee unpaid — current year outstanding | FD | 23 |
+| 5 | Senior transfer due — turns 40 within 12 months | HS | 5 |
+| 6 | Disengaged member — ≤ 4 MFGs attended and no project role | MAD | 7 |
+| 7 | Motion pending — tabled for BOD motion, still unresolved | HS | 8 |
+
+Thresholds are a single `THRESHOLDS` dict. Three of these rules encode a judgement worth noting:
+
+- **Rule 3** excludes members with status *Pending BOD Motion* — otherwise the system tells the Honorary Secretary to induct someone the board is mid-way through removing.
+- **Rule 4** is *not* scoped to active members. Arrears left behind by someone who resigned are exactly what the Finance Director needs to see, to chase or to write off. The member's status appears in the alert detail so the two cases are distinguishable.
+- **Rule 7** ages a motion from the date it was *tabled* (read from `status_events`), not from `members.bod_motion_date` — that column holds the upcoming board meeting date, so ageing against it would report every stuck motion as negative days old.
+
+### Permissions — [`src/permissions.py`](src/permissions.py)
+
+Access is read from a field's **group**, never a hardcoded field name, so adding a column to a group changes its visibility everywhere at once.
+
+| Field group | President + MA | HS + FD | Board / Chairman / SO | Member |
+|---|---|---|---|---|
+| identity | full | full | full | own |
+| contact | full | edit | read¹ | own |
+| personal | full | masked² | **hidden** | own |
+| professional | full | read | read | own |
+| finance | full | edit | **hidden** | own |
+| governance | full | read | **hidden** | **hidden** |
+| analytics | full | read³ | **hidden** | own |
+
+¹ At read level, the JCI address stays in the clear and mobile/personal email are masked (`+8529•••2925`, `a…80@gmail.com`) — see [open question 1](#two-open-design-questions).
+² Date of birth becomes a five-year band (`born 1990-1994`); age becomes `30-34`.
+³ Finance roles get finance alerts but not the health analytics.
+
+**Hidden means the column is dropped.** Masked means the value is replaced before export. Neither is ever done in CSS or in a React component.
+
+Pages are gated the same way, on the tier rather than on the account:
+
+| Page | President + MA | HS + FD | Board / Chairman / SO | Member |
+|---|:--:|:--:|:--:|:--:|
+| Dashboard | ● | ● | — | — |
+| Alerts | ● | ● | — | — |
+| Directory | ● | ● | ● | own record |
+| Member record | ● | ● | ● | own record |
+| Growth tree | ● | — | — | — |
+| Activity log | ● | — | — | — |
+| Export | ● | ● | — | — |
+| **Member database (write)** | ● | — | — | — |
+
+The circular age diagram follows the field group rather than the page: it ships only to a tier holding **unmasked** access to `personal`, so it is absent from the HS + FD dashboard file, not hidden on their screen.
+
+---
+
+## Verification
+
+`scripts/verify.py` runs 47 acceptance checks and exits non-zero on any failure:
+
+- **Row counts** — 150 members, 443 status events, 409 fee records, 136 OC participations, 17 projects.
+- **Derived fields vs. the source spreadsheet** — every derived column the workbook also holds is compared across all 150 rows, not spot-checked.
+- **Alert counts** — all seven rules are asserted against their expected values (4, 10, 6, 23, 5, 7, 8). A rule that silently stops firing fails the build.
+- **Health score** — every PM and FM scored, every SM `N/A`, all scores within 0–100.
+- **Permissions** — access provably narrows with tier (58 > 51 > 30 columns), the Chairman payload is checked for four specific dropped columns, and a Member resolves to exactly one row.
+- **Payload contents** — the probe member's real date of birth, mobile, personal email and removal reason are asserted absent from the Chairman's JSON; the age rings and growth tree are asserted present in the admin file and absent from the HS + FD one.
+- **Roles and tiers** — every role code in the data is in the catalogue, and for all 150 members the derived tier is asserted equal to the highest role held. 39 members are confirmed lifted above their class by a post.
+- **Accounts** — one per member, unique usernames, a unique salt each, hashes only, and every removed or resigned member disabled. Account tiers are asserted equal to the tiers derived from the role record, so the login path and the payload path cannot drift.
+- **Per-member payloads** — every Member-tier file is asserted to hold exactly its own record and no one else's.
+- **PII** — every mobile matches the synthetic format and every personal email was regenerated.
+
+```
+$ python scripts/verify.py
+...
+All acceptance checks passed.
+```
+
+**Three values deliberately disagree with the spreadsheet, and the check allows exactly those three.** Three members chair one project and supervise another. The spec ranks Chairman above SO; the workbook's summary column records them as SO. The spec is the spec — and the workbook's own *"Chairman / SO Of (2026)"* column records both roles, so nothing is lost either way.
+
+---
+
+## Project structure
+
+```
+jci-member-tracker/
+├── data/
+│   ├── JCI_Victoria_Member_Data.xlsx   source workbook (synthetic)
+│   └── members.db                      generated, committed
+├── src/                                all the logic
+│   ├── db.py            get_frames() -> dict of DataFrames
+│   ├── derived.py       derived fields + verification against the sheet
+│   ├── health.py        health score, weights in one dict
+│   ├── alerts.py        the seven rules
+│   ├── roles.py         the role catalogue; highest role -> access tier
+│   ├── auth.py          one account per member, PBKDF2 hashes
+│   ├── growth.py        promotion ladder, referral tree, age rings
+│   └── permissions.py   the field-group matrix + page gates
+├── scripts/
+│   ├── load_data.py     Excel -> SQLite, regenerates contact PII
+│   ├── export_json.py   SQLite -> per-tier payloads + accounts
+│   ├── validate_upload.py  checks a submitted workbook before it is applied
+│   └── verify.py        47 acceptance checks
+└── web/
+    ├── app/
+    │   ├── login/       sign-in page and its server actions
+    │   └── (app)/       the signed-in shell: 8 pages, one session guard
+    ├── components/      sidebar, account card, charts, rings, tree, tables
+    ├── lib/             theme tokens, server-only data + auth + admin
+    └── data/            generated payloads and accounts, committed
+```
+
+**Stack:** Python 3.11 / pandas 2.2 / SQLite for the logic; Next.js 16, React 19, Tailwind CSS 3.4 and Recharts for the interface. No API for member data, no runtime database, no ORM, and no auth library — sign-in is PBKDF2 and an HMAC-signed cookie, about 200 lines in `web/lib/auth.ts`. The Python runs at build time; the web app reads JSON in server components. The age rings are plain SVG with no client JavaScript at all.
+
+> **One deliberate deviation from the spec.** The PRD specifies Streamlit (sections 6 and 13.3). The interface was built in Next.js instead, because the target design — a dense, branded dashboard — is not reachable in Streamlit without CSS overrides that hang off its internal class names. **None of the logic changed:** derived fields, the health score, the seven alert rules and the permission matrix are all still pandas, and still the thing `verify.py` checks. Only the rendering layer is different — and rendering in server components is what lets hidden fields be genuinely absent rather than merely undisplayed.
+
+Architectural rules are documented in [`.cursorrules`](.cursorrules) — worth reading before contributing.
 
 ---
 
 ## Deploying
 
-Vercel, from the `web/` directory. Import the repo, set the root directory
-to `web`, and deploy — no environment variables and no database to
-provision, because the payloads are committed files.
+Vercel, from the `web/` directory. Import the repo, set the root directory to `web`, and deploy. **No environment variables and no database to provision**, because the payloads are committed files.
 
-Do this in **hour 1**, not hour 17. A hello-world deploy that already works
-turns a late deployment problem into a five-minute fix.
+Any Node host works the same way:
 
----
-
-## Repo layout
-
-```
-jci-member-tracker/
-├── data/
-│   ├── JCI_Victoria_Member_Data.xlsx   source workbook
-│   └── members.db                      generated, committed
-├── src/                                the logic worth reviewing
-│   ├── db.py            get_frames() -> dict of DataFrames
-│   ├── derived.py       every PRD 4.2 rule + verify() against the sheet
-│   ├── health.py        PRD 4.3, weights in one WEIGHTS dict
-│   ├── alerts.py        PRD 6.3, the seven rules
-│   └── permissions.py   PRD 3.1, the field-group matrix
-├── scripts/
-│   ├── load_data.py     Excel -> SQLite, regenerates PII
-│   ├── export_json.py   SQLite -> per-persona payloads
-│   └── verify.py        acceptance checks (PRD 11)
-└── web/
-    ├── app/             6 pages + the CSV route
-    ├── components/      Sidebar, RoleSwitcher, RoleBanner, charts, ui
-    ├── lib/             theme (PRD 13), data (server-only), activity log
-    └── data/            generated payloads, committed
+```bash
+cd web && npm install && npm run build && npm start
 ```
 
 ---
 
-## The demo (PRD 10)
+## Data & privacy
 
-Four minutes. Order matters: **president → chairman → member**, descending,
-because the drop is the story.
+**No real member's personal data is in this repository.**
 
-1. The spreadsheet on screen. "This is how 150 members are managed."
-2. Dashboard — the movement chart. "Every join, induction, senior transfer
-   and departure since 1965. We have never seen this."
-3. Alerts — 10 PMs past their deadline right now. Click into one.
-4. Member detail — health score, journey timeline.
-5. **Switch to Chairman on the same record.** Date of birth gone, fees
-   gone, motion history gone, contact masked. Twenty seconds, no wasted
-   words.
-6. Activity log — the rows those clicks just created.
-7. Roadmap.
+- The member names in `data/JCI_Victoria_Member_Data.xlsx` were already synthetic when the workbook was prepared for the hackathon.
+- Mobile numbers and personal email addresses are **regenerated** by `scripts/load_data.py` using a fixed seed (`PII_SEED = 20260919`), so they are deterministic across runs but correspond to no one. `verify.py` asserts every mobile matches the synthetic `+852########` format and every personal email was regenerated.
+- The CSV export carries a `# Synthetic demo data - not real member records` header line.
+- Structure, volumes and distributions are realistic — that is what makes the alert rules meaningful — but the values are not.
 
-Rehearse step 5 until it is twenty seconds. It wins or loses the pitch.
+If you fork this for a real chapter, treat `data/` and `web/data/` as containing live personal data and **remove them from version control** before pushing anywhere.
 
 ---
 
-## Three things to know before a judge asks
+## Known limits
 
-**The seven alert counts are verified, not asserted.** `scripts/verify.py`
-checks them against the PRD's numbers (4, 10, 6, 23, 5, 7, 8) on every run.
+Stated rather than hidden.
 
-**Three derived values deliberately disagree with the spreadsheet.** Three
-members chair one project and supervise another; PRD 4.2 ranks Chairman
-above SO and the sheet's summary column does not. The PRD is the spec. The
-sheet's own "Chairman / SO Of (2026)" column records both, so nothing is
-lost.
+**Attendance is a yearly count, not per-meeting records.** The system can tell you someone attended 3 of 6 meetings; it cannot show an attendance trend or detect someone who stopped coming three months ago. The fix is an `attendance(member_id, event_date, event_name, present)` table.
 
-**Two age bases exist on purpose.** PRD 4.2 defines age as years since
-birth, which is what the app displays. The chapter's sheet uses calendar
-year age, which is the basis senior transfer actually runs on — you
-transfer in the year you turn 40, not on your birthday. Forecasting uses
-the calendar basis so the transfer year matches what the chapter expects.
+**The activity log lives in server memory for the length of a session.** It is append-only within the process and reachable only through the Activity page. The next stage writes it to the append-only `activity_log` table already defined in the schema, where it survives restarts and cannot be edited from the app.
 
----
+**Writes are limited to replacing the whole member database.** There is no per-field editing in the app: the President and MA team upload a workbook and it replaces the records. Email and WhatsApp are still not sent from here. Passwords are seeded from the member id and there is no reset flow, no rate limiting on sign-in and no second factor — all three are needed before this holds real contact details.
 
-## Known limits, stated rather than hidden
-
-**Attendance is a yearly count, not per-meeting records.** So the system
-cannot show an attendance trend or detect someone who stopped coming three
-months ago. Stage 2 adds an `attendance(member_id, event_date, event_name,
-present)` table. (PRD 4.4)
-
-**The activity log lives in server memory for the length of the demo.**
-Stage 2 writes it to the append-only `activity_log` table already defined
-in the schema, where it survives restarts and cannot be edited from the
-app.
-
-**Everything is read-only.** No authentication, no writes to member data,
-no email or WhatsApp sent. That was a deliberate scope decision (PRD 5) and
-it is what bought the time to make the parts a judge sees genuinely work.
-
-**The demo runs on synthetic data.** Mobiles and personal emails are
-regenerated deterministically by `load_data.py`; names in the source
-workbook were already synthetic. No real member's contact details are in
-the deployed build.
+**The activity log lives in server memory** for the length of the process. The append-only `activity_log` table is already in the schema; moving the log into it is what makes it survive a restart and stop being editable from the app.
 
 ---
 
 ## Two open design questions
 
-Both are worth raising in the pitch as decisions you made rather than
-details you missed.
+Both are decisions, not oversights, and both are worth confirming before any pilot.
 
-1. **How much contact detail should a project Chairman see?** PRD 3.1
-   grants project leaders full read on contact, following current chapter
-   practice. This build takes the narrower reading: the JCI address in the
-   clear, mobile and personal email masked. A Chairman gets a way to reach
-   his team, not everyone's private number.
+**1. How much contact detail should a project Chairman see?** The spec grants project leaders full read access on contact, following current chapter practice. This build takes the narrower reading: JCI address in the clear, mobile and personal email masked. A Chairman gets a way to reach his team — not everyone's private number.
 
-2. **`member_status` is visible to every role**, so a Chairman can see that
-   a member is "Pending BOD Motion" even though the governance group is
-   hidden from him. That follows PRD 3.1, where identity is full access for
-   everyone, but it is a judgement call worth confirming before the pilot.
+**2. `member_status` is visible to every role.** So a Chairman can see that a member is *"Pending BOD Motion"* even though the entire governance group is hidden from him. That follows the spec, where identity is full access for everyone. It is defensible — the status is operationally necessary — but it is a judgement call.
+
+Two further questions that need a chapter, not a codebase, to answer — how long removed members' records are kept, and who the named data owner is — are recorded in [PRD section 18](PRD_Smart_Member_Growth_Tracker.md).
+
+---
+
+## Documentation
+
+- [`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md) — start here if you are new to JCI: what a chapter is, what the posts mean, and how membership actually progresses.
+- [`PRD_Smart_Member_Growth_Tracker.md`](PRD_Smart_Member_Growth_Tracker.md) — the full specification. Section numbers referenced throughout the source comments (`PRD 4.2`, `PRD 6.3`, …) point here.
+- [`.cursorrules`](.cursorrules) — architectural constraints for anyone changing the code.
+
+---
+
+## Glossary
+
+| Term | Meaning |
+|---|---|
+| **JCI** | Junior Chamber International. |
+| **LOM** | Local Organisation Member — a chapter. This one is JCI Victoria. |
+| **PM / FM / SM** | Prospective Member (joined, not yet inducted) / Full Member (inducted) / Senior Member (automatic at 40). |
+| **Induction** | The ceremony and date a PM becomes a Full Member. |
+| **FM requirement** | Two OC teams within six months of joining — required for induction. |
+| **OC** | Organising Committee — the working members of a project team. |
+| **MFG** | The chapter's regular monthly gathering. |
+| **Chairman / SO** | The member leading a project / the Board member supervising it. |
+| **BOD motion** | The formal vote required to remove a member or accept a resignation. |
+| **P / MAD / MAO / HS / FD** | President / Membership Affairs Director / Membership Affairs Officer / Honorary Secretary / Finance Director. |
+| **One Year to Lead** | Every post lasts one year; the board turns over each January. |
+
+A fuller glossary, and the context behind all of it, is in [`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md).
+
+---
+
+## License
+
+Not yet licensed. Until a license is added, all rights are reserved — please open an issue if you would like to use this.

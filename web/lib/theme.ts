@@ -53,6 +53,23 @@ export const severity = {
   Watch: { color: status.watch, bg: "#FDF0E2", label: "Watch" },
 } as const;
 
+/**
+ * The age rings (FM and PM average age against the 40-year ceiling).
+ *
+ * A fifth and sixth hue rather than a reuse of `series`: the movement chart
+ * and the rings appear on the same screen, and a viewer who has just learned
+ * that #1590CA means "joined as PM" should not meet it again three inches
+ * away meaning "Full Member". `track` and `range` are the same hue stepped
+ * down, so each ring reads as one object -- spread, average, ceiling.
+ */
+export const ageRing: Record<string, { arc: string; range: string; track: string }> = {
+  PM: { arc: "#1590CA", range: "#BFE0F1", track: "#EAF3F9" },
+  FM: { arc: "#6E3FA3", range: "#DACCEA", track: "#F1ECF7" },
+};
+
+/** Fallback for a class the palette above does not name. */
+export const ageRingFallback = ageRing.PM;
+
 export const movementSeries = [
   { key: "joined", label: "Joined as PM", color: series.joined },
   { key: "inducted", label: "Inducted", color: series.inducted },

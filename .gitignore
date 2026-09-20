@@ -7,3 +7,6 @@ web/node_modules
 web/.next
 web/out
 *.tsbuildinfo
+
+# Workbooks staged by the President + MA upload page
+data/uploads/

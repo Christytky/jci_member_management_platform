@@ -1,0 +1,278 @@
+{
+  "tiers": [
+    {
+      "tier": "President + MA",
+      "rank": 4,
+      "slug": "admin"
+    },
+    {
+      "tier": "HS + FD",
+      "rank": 3,
+      "slug": "secretariat"
+    },
+    {
+      "tier": "Board / Chairman / SO",
+      "rank": 2,
+      "slug": "leader"
+    },
+    {
+      "tier": "Member",
+      "rank": 1,
+      "slug": "member"
+    }
+  ],
+  "roles": [
+    {
+      "code": "PM",
+      "label": "Provisional Member",
+      "kind": "class",
+      "tier": "Member",
+      "rank": 1
+    },
+    {
+      "code": "FM",
+      "label": "Full Member",
+      "kind": "class",
+      "tier": "Member",
+      "rank": 1
+    },
+    {
+      "code": "SM",
+      "label": "Senior Member",
+      "kind": "class",
+      "tier": "Member",
+      "rank": 1
+    },
+    {
+      "code": "P",
+      "label": "President",
+      "kind": "board",
+      "tier": "President + MA",
+      "rank": 4
+    },
+    {
+      "code": "MAD",
+      "label": "Membership Affairs Director",
+      "kind": "board",
+      "tier": "President + MA",
+      "rank": 4
+    },
+    {
+      "code": "MAO",
+      "label": "Membership Affairs Officer",
+      "kind": "board",
+      "tier": "President + MA",
+      "rank": 4
+    },
+    {
+      "code": "HS",
+      "label": "Honorary Secretary",
+      "kind": "board",
+      "tier": "HS + FD",
+      "rank": 3
+    },
+    {
+      "code": "FD",
+      "label": "Finance Director",
+      "kind": "board",
+      "tier": "HS + FD",
+      "rank": 3
+    },
+    {
+      "code": "FACC",
+      "label": "Finance & Audit Committee Chairman",
+      "kind": "board",
+      "tier": "HS + FD",
+      "rank": 3
+    },
+    {
+      "code": "IPP",
+      "label": "Immediate Past President",
+      "kind": "board",
+      "tier": "Board / Chairman / SO",
+      "rank": 2
+    },
+    {
+      "code": "VP",
+      "label": "Vice President",
+      "kind": "board",
+      "tier": "Board / Chairman / SO",
+      "rank": 2
+    },
+    {
+      "code": "SMO",
+      "label": "Senior Members Officer",
+      "kind": "board",
+      "tier": "Board / Chairman / SO",
+      "rank": 2
+    },
+    {
+      "code": "CD",
+      "label": "Community Director",
+      "kind": "board",
+      "tier": "Board / Chairman / SO",
+      "rank": 2
+    },
+    {
+      "code": "LD",
+      "label": "Local Director",
+      "kind": "board",
+      "tier": "Board / Chairman / SO",
+      "rank": 2
+    },
+    {
+      "code": "LDD",
+      "label": "Leadership Development Director",
+      "kind": "board",
+      "tier": "Board / Chairman / SO",
+      "rank": 2
+    },
+    {
+      "code": "LDO",
+      "label": "Leadership Development Officer",
+      "kind": "board",
+      "tier": "Board / Chairman / SO",
+      "rank": 2
+    },
+    {
+      "code": "YAD",
+      "label": "Youth Affairs Director",
+      "kind": "board",
+      "tier": "Board / Chairman / SO",
+      "rank": 2
+    },
+    {
+      "code": "IAD",
+      "label": "International Affairs Director",
+      "kind": "board",
+      "tier": "Board / Chairman / SO",
+      "rank": 2
+    },
+    {
+      "code": "PRD",
+      "label": "Public Relations Director",
+      "kind": "board",
+      "tier": "Board / Chairman / SO",
+      "rank": 2
+    },
+    {
+      "code": "SDGD",
+      "label": "SDG Director",
+      "kind": "board",
+      "tier": "Board / Chairman / SO",
+      "rank": 2
+    },
+    {
+      "code": "BAD",
+      "label": "Business Affairs Director",
+      "kind": "board",
+      "tier": "Board / Chairman / SO",
+      "rank": 2
+    },
+    {
+      "code": "BOD",
+      "label": "Board of Directors",
+      "kind": "board",
+      "tier": "Board / Chairman / SO",
+      "rank": 2
+    },
+    {
+      "code": "NVP",
+      "label": "National Vice President",
+      "kind": "national",
+      "tier": "Board / Chairman / SO",
+      "rank": 2
+    },
+    {
+      "code": "NLDD",
+      "label": "National LD Director",
+      "kind": "national",
+      "tier": "Board / Chairman / SO",
+      "rank": 2
+    },
+    {
+      "code": "NLDO",
+      "label": "National LD Officer",
+      "kind": "national",
+      "tier": "Board / Chairman / SO",
+      "rank": 2
+    },
+    {
+      "code": "NGLC",
+      "label": "National GLC Officer",
+      "kind": "national",
+      "tier": "Board / Chairman / SO",
+      "rank": 2
+    },
+    {
+      "code": "NRRO",
+      "label": "National RR Officer",
+      "kind": "national",
+      "tier": "Board / Chairman / SO",
+      "rank": 2
+    },
+    {
+      "code": "NIAO",
+      "label": "National IA Officer",
+      "kind": "national",
+      "tier": "Board / Chairman / SO",
+      "rank": 2
+    },
+    {
+      "code": "Chairman",
+      "label": "Project Chairman",
+      "kind": "project",
+      "tier": "Board / Chairman / SO",
+      "rank": 2
+    },
+    {
+      "code": "SO",
+      "label": "Supervising Officer",
+      "kind": "project",
+      "tier": "Board / Chairman / SO",
+      "rank": 2
+    },
+    {
+      "code": "OC",
+      "label": "Organising Committee",
+      "kind": "project",
+      "tier": "Member",
+      "rank": 1
+    },
+    {
+      "code": "PP",
+      "label": "Past President",
+      "kind": "honour",
+      "tier": "Member",
+      "rank": 1
+    },
+    {
+      "code": "PNP",
+      "label": "Past National President",
+      "kind": "honour",
+      "tier": "Member",
+      "rank": 1
+    },
+    {
+      "code": "Senator",
+      "label": "JCI Senator",
+      "kind": "honour",
+      "tier": "Member",
+      "rank": 1
+    },
+    {
+      "code": "HLP",
+      "label": "Honorary Life Patron",
+      "kind": "honour",
+      "tier": "Member",
+      "rank": 1
+    },
+    {
+      "code": "SMCC",
+      "label": "Senior Members Consultative Committee",
+      "kind": "honour",
+      "tier": "Member",
+      "rank": 1
+    }
+  ]
+}

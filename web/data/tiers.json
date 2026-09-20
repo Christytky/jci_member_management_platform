@@ -1,0 +1,88 @@
+[
+  {
+    "tier": "President + MA",
+    "slug": "admin",
+    "rank": 4,
+    "columns": 58,
+    "members": 150,
+    "alerts": 63,
+    "hidden": [],
+    "pages": [
+      "dashboard",
+      "alerts",
+      "directory",
+      "member",
+      "activity",
+      "export",
+      "growth",
+      "upload"
+    ],
+    "roles": [
+      "P",
+      "MAD",
+      "MAO"
+    ]
+  },
+  {
+    "tier": "HS + FD",
+    "slug": "secretariat",
+    "rank": 3,
+    "columns": 51,
+    "members": 150,
+    "alerts": 42,
+    "hidden": [],
+    "pages": [
+      "dashboard",
+      "alerts",
+      "directory",
+      "member",
+      "export"
+    ],
+    "roles": [
+      "HS",
+      "FD",
+      "FACC"
+    ]
+  },
+  {
+    "tier": "Board / Chairman / SO",
+    "slug": "leader",
+    "rank": 2,
+    "columns": 30,
+    "members": 150,
+    "alerts": 0,
+    "hidden": [
+      "personal",
+      "finance",
+      "governance",
+      "analytics"
+    ],
+    "pages": [
+      "directory",
+      "member"
+    ],
+    "roles": [
+      "IPP",
+      "VP",
+      "SMO",
+      "CD",
+      "LD",
+      "LDD",
+      "LDO",
+      "YAD",
+      "IAD",
+      "PRD",
+      "SDGD",
+      "BAD",
+      "BOD",
+      "NVP",
+      "NLDD",
+      "NLDO",
+      "NGLC",
+      "NRRO",
+      "NIAO",
+      "Chairman",
+      "SO"
+    ]
+  }
+]
