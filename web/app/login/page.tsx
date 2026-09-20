@@ -4,7 +4,7 @@ import { ShieldCheck } from "lucide-react";
 import { LoginForm } from "@/components/LoginForm";
 import { demoAccounts, getSession } from "@/lib/auth";
 
-export const metadata = { title: "Sign in — JCI Victoria Member Growth Tracker" };
+export const metadata = { title: "Sign in — JCI Victoria Smart Member Management Platform" };
 
 /**
  * The sign-in screen.
@@ -33,7 +33,7 @@ export default async function LoginPage() {
             <div className="leading-tight">
               <div className="text-[15px] font-bold tracking-tight">JCI Victoria</div>
               <div className="text-[10px] font-medium uppercase tracking-[0.06em] text-ink-faint">
-                Member Growth Tracker
+                Smart Member Management Platform
               </div>
             </div>
           </div>

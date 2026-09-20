@@ -1,4 +1,4 @@
-# Project Overview — Smart Member Growth Tracker
+# Project Overview — Smart Member Management Platform
 ### Briefing for teammates who are new to JCI
 
 **Read this before the PRD.** The PRD tells you what to build. This tells you what the words mean and why the problem exists. Fifteen minutes here will save you hours of confusion later.

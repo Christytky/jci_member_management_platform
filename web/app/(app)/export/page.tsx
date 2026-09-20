@@ -69,7 +69,7 @@ export default async function ExportPage() {
 
         <Card title="Watermark" subtitle="Written into the file header">
           <pre className="overflow-x-auto rounded-lg bg-surface-sunken p-3 text-[11px] leading-5 tnum text-ink-muted">
-{`# JCI Victoria — Member Growth Tracker
+{`# JCI Victoria — Smart Member Management Platform
 # Exported by: ${payload.viewer.name} <${payload.viewer.username}>
 # Role record: ${payload.viewer.role_record}
 # Access tier: ${payload.access.tier}

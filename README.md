@@ -1,4 +1,4 @@
-# Smart Member Growth Tracker
+# Smart Member Management Platform
 
 **A membership system for a JCI chapter that replaces the shared spreadsheet — one live member record, a complete movement history, and access granted by post instead of by emailing a file.**
 
@@ -135,8 +135,8 @@ The server action re-checks the tier itself rather than trusting that a form was
 **Requirements:** Python 3.11+ and Node 20+.
 
 ```bash
-git clone <your-fork-url> jci-member-tracker
-cd jci-member-tracker
+git clone <your-fork-url> smart-member-management-platform
+cd smart-member-management-platform
 
 # 1. Build the data
 pip install -r requirements.txt
@@ -278,7 +278,7 @@ All acceptance checks passed.
 ## Project structure
 
 ```
-jci-member-tracker/
+smart-member-management-platform/
 ├── data/
 │   ├── JCI_Victoria_Member_Data.xlsx   source workbook (synthetic)
 │   └── members.db                      generated, committed
@@ -360,14 +360,14 @@ Both are decisions, not oversights, and both are worth confirming before any pil
 
 **2. `member_status` is visible to every role.** So a Chairman can see that a member is *"Pending BOD Motion"* even though the entire governance group is hidden from him. That follows the spec, where identity is full access for everyone. It is defensible — the status is operationally necessary — but it is a judgement call.
 
-Two further questions that need a chapter, not a codebase, to answer — how long removed members' records are kept, and who the named data owner is — are recorded in [PRD section 18](PRD_Smart_Member_Growth_Tracker.md).
+Two further questions that need a chapter, not a codebase, to answer — how long removed members' records are kept, and who the named data owner is — are recorded in [PRD section 18](PRD_Smart_Member_Management_Platform.md).
 
 ---
 
 ## Documentation
 
 - [`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md) — start here if you are new to JCI: what a chapter is, what the posts mean, and how membership actually progresses.
-- [`PRD_Smart_Member_Growth_Tracker.md`](PRD_Smart_Member_Growth_Tracker.md) — the full specification. Section numbers referenced throughout the source comments (`PRD 4.2`, `PRD 6.3`, …) point here.
+- [`PRD_Smart_Member_Management_Platform.md`](PRD_Smart_Member_Management_Platform.md) — the full specification. Section numbers referenced throughout the source comments (`PRD 4.2`, `PRD 6.3`, …) point here.
 - [`.cursorrules`](.cursorrules) — architectural constraints for anyone changing the code.
 
 ---

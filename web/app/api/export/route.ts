@@ -33,7 +33,7 @@ export async function GET() {
   // The watermark names an account, not a persona. A forwarded file now
   // says which member produced it and which of their roles let them.
   const header = [
-    `# JCI Victoria - Member Growth Tracker`,
+    `# JCI Victoria - Smart Member Management Platform`,
     `# Exported by: ${payload.viewer.name} <${payload.viewer.username}>`,
     `# Role record: ${payload.viewer.role_record}`,
     `# Access tier: ${payload.access.tier} (via ${payload.viewer.governing_role ?? "-"})`,

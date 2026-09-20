@@ -1,5 +1,5 @@
 # Product Requirements Document
-## Smart Member Growth Tracker — JCI Victoria
+## Smart Member Management Platform — JCI Victoria
 
 **Version** 1.0 · **Date** 19 September 2026 · **Owner** [your name] · **Build window** 24 hours
 **Stack** Python 3.11 · Streamlit · SQLite · pandas · Plotly · deployed to Streamlit Community Cloud
@@ -452,7 +452,7 @@ Demo in the order president → chairman → member. The drop from full record t
 Agree this before anyone writes code, or two people will write the same function differently.
 
 ```
-jci-member-tracker/
+smart-member-management-platform/
 ├── app.py                  # entry: theme, sidebar persona switcher, routing
 ├── .streamlit/config.toml
 ├── requirements.txt
@@ -506,7 +506,7 @@ Faker==30.8.1
 
 ```
 This is a Streamlit + SQLite membership dashboard for a JCI chapter.
-Read PRD_Smart_Member_Growth_Tracker.md before any change; it is the spec.
+Read PRD_Smart_Member_Management_Platform.md before any change; it is the spec.
 
 Rules:
 - Python 3.11, Streamlit multipage, pandas. No web framework, no ORM, no auth library.

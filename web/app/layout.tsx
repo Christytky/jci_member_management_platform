@@ -10,7 +10,7 @@ import "./globals.css";
 // the network and a font that does not load degrades to the system sans stack.
 
 export const metadata: Metadata = {
-  title: "JCI Victoria — Member Growth Tracker",
+  title: "JCI Victoria — Smart Member Management Platform",
   description:
     "One live member record, a full movement history, and access granted by post rather than by sharing a file.",
 };

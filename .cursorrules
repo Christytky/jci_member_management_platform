@@ -1,5 +1,5 @@
 This is a Next.js + SQLite membership dashboard for a JCI chapter.
-Read PRD_Smart_Member_Growth_Tracker.md and README.md before any change.
+Read PRD_Smart_Member_Management_Platform.md and README.md before any change.
 The PRD is the spec; the README records where this build deviates and why.
 
 Architecture — do not change without discussing it first:

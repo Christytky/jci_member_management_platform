@@ -75,8 +75,12 @@ export function Sidebar({
         </div>
         <div className="leading-tight">
           <div className="text-[13px] font-bold tracking-tight">JCI Victoria</div>
+          {/* The lockup subtitle, not the product name: "Smart Member
+              Management Platform" set at 9.5px uppercase wraps to three
+              lines in a 248px rail and unbalances the mark. The full name
+              is on the sign-in screen, the page title and every export. */}
           <div className="text-[9.5px] font-medium uppercase tracking-[0.06em] text-ink-faint">
-            Growth Tracker
+            Member Platform
           </div>
         </div>
       </div>
