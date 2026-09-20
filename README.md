@@ -4,8 +4,7 @@
 
 Built for the JCI Innovation Hackathon, using JCI Victoria's membership data as the working case.
 
-> **Live demo:** not yet deployed — see [Deploying](#deploying) to run your own.
-> Until then, [Quick start](#quick-start) gets it running locally in about two minutes.
+<img width="2880" height="1800" alt="image" src="https://github.com/user-attachments/assets/bdb49119-9d88-47d2-87d3-537f28ea28fc" />
 
 ---
 
