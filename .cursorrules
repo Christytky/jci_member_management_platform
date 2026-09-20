@@ -1,6 +1,6 @@
 This is a Next.js + SQLite membership dashboard for a JCI chapter.
-Read PRD_Smart_Member_Management_Platform.md and README.md before any change.
-The PRD is the spec; the README records where this build deviates and why.
+Read README.md before any change. It is the spec of record: how the logic
+works, how permissions are enforced, and where this build made a judgement call.
 
 Architecture — do not change without discussing it first:
 - Python (src/, scripts/) owns ALL logic: derived fields, health score,

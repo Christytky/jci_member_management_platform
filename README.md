@@ -359,15 +359,17 @@ Both are decisions, not oversights, and both are worth confirming before any pil
 
 **2. `member_status` is visible to every role.** So a Chairman can see that a member is *"Pending BOD Motion"* even though the entire governance group is hidden from him. That follows the spec, where identity is full access for everyone. It is defensible — the status is operationally necessary — but it is a judgement call.
 
-Two further questions that need a chapter, not a codebase, to answer — how long removed members' records are kept, and who the named data owner is — are recorded in [PRD section 18](PRD_Smart_Member_Management_Platform.md).
+Two further questions need a chapter, not a codebase, to answer: **how long a removed member's record is kept**, and **who the named data owner is**. Both are governance decisions for the board, and neither is settled here.
 
 ---
 
 ## Documentation
 
-- [`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md) — start here if you are new to JCI: what a chapter is, what the posts mean, and how membership actually progresses.
-- [`PRD_Smart_Member_Management_Platform.md`](PRD_Smart_Member_Management_Platform.md) — the full specification. Section numbers referenced throughout the source comments (`PRD 4.2`, `PRD 6.3`, …) point here.
+- This README — the whole of it. How the logic works, how permissions are enforced, how roles resolve to tiers, and where the build made a judgement call.
 - [`.cursorrules`](.cursorrules) — architectural constraints for anyone changing the code.
+- The source comments — each module opens with what it is for and why it is built the way it is. `src/roles.py`, `src/permissions.py` and `src/growth.py` are the three worth reading first.
+
+Source comments carry `PRD 4.2`-style citations to the original specification. That document is not in this repository; the citations are left in place as provenance, and the [Glossary](#glossary) and the sections above cover everything they refer to.
 
 ---
 
@@ -387,7 +389,7 @@ Two further questions that need a chapter, not a codebase, to answer — how lon
 | **P / MAD / MAO / HS / FD** | President / Membership Affairs Director / Membership Affairs Officer / Honorary Secretary / Finance Director. |
 | **One Year to Lead** | Every post lasts one year; the board turns over each January. |
 
-A fuller glossary, and the context behind all of it, is in [`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md).
+**One year to lead.** Every post in a JCI chapter lasts a single calendar year, and the board turns over each January. That is the fact behind most of this build: a system whose access rules have to be re-typed by hand every January is a system that will be wrong by February.
 
 ---
 

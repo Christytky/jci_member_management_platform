@@ -4,9 +4,8 @@ Reads data/JCI_Victoria_Member_Data.xlsx, creates the schema exactly as
 specified in PRD section 4.1, loads all seven tables, and replaces mobiles
 and personal emails with deterministic synthetic values.
 
-Names in the source workbook are already synthetic (see PROJECT_OVERVIEW
-section 7), so they are preserved -- stable names keep the demo identical
-every run. Contact details are regenerated regardless, because those are
+Names in the source workbook are already invented, so they are preserved --
+stable names keep the demo identical every run. Contact details are regenerated regardless, because those are
 what PRD 11 forbids deploying to a public URL.
 
 It also issues one account per member. The account carries no permissions:
