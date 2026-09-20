@@ -2,7 +2,7 @@
 
 **A membership system for a JCI chapter that replaces the shared spreadsheet — one live member record, a complete movement history, and access granted by post instead of by emailing a file.**
 
-Built for the JCI Innovation Hackathon, using membership mock data as the working case.
+Built for the JCI Innovation Hackathon, using mock data as the working case.
 
 <img width="2880" height="1800" alt="image" src="https://github.com/user-attachments/assets/bdb49119-9d88-47d2-87d3-537f28ea28fc" />
 
