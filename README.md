@@ -378,9 +378,3 @@ Source comments carry `PRD 4.2`-style citations to the original specification. T
 | **One Year to Lead** | Every post lasts one year; the board turns over each January. |
 
 **One year to lead.** Every post in a JCI chapter lasts a single calendar year, and the board turns over each January. That is the fact behind most of this build: a system whose access rules have to be re-typed by hand every January is a system that will be wrong by February.
-
----
-
-## License
-
-Not yet licensed. Until a license is added, all rights are reserved — please open an issue if you would like to use this.
