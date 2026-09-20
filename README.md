@@ -35,6 +35,7 @@ This project takes the same data and makes it answer those questions itself — 
 | **Promotion history** | Every member's climb, PM → FM → SM, with the gap between each step written on the rail. Four years between joining and induction is a member the chapter nearly lost, and it is invisible in a column of dates. |
 | **Age against the 40-year ceiling** | A circular diagram of FM and PM average age against the age at which a member transfers to Senior — and how many transfer out inside two years. |
 | **Individual logins** | One account per member. Access is derived from the posts on their record, never chosen from a dropdown. |
+| **Editing, scoped the same way** | The permission matrix always declared who may *change* a field, not just read one. Now it is enforced: the secretariat edits contact details and fees, the President and MA team edit everything, a project Chairman edits nothing — and a post can only be granted by the level that owns access. |
 | **Role-scoped CSV export** | The export contains exactly the columns you could see on screen. A Chairman's export cannot leak a field a Chairman cannot read. |
 | **Activity log** | Every sign-in, restricted-field view, export and upload, recorded with who, what and when — under a person's name, not a persona's. |
 
@@ -61,13 +62,15 @@ So when the permission matrix says a Chairman cannot see fee status, the consequ
 
 The concrete difference, same 150 members, different post:
 
-| Signed in as | Role record | Access tier | Columns | Members | Alerts |
-|---|---|---|---:|---:|---:|
-| Xavier Tam | `P & BOD & FM` | President + MA | **58** | 150 | 63 |
-| Adrian Shum | `MAO & FM` | President + MA | **58** | 150 | 63 |
-| Mavis Tsang | `HS & BOD & SO & FM` | HS + FD | **51** | 150 | 42 |
-| Oscar Szeto | `Chairman & FM` | Board / Chairman / SO | **30** | 150 | 0 |
-| Ka Chun Siu | `FM` | Member | **54** | **1** (own record) | 0 |
+| Signed in as | Post | Permission level | Columns | Editable | Members | Alerts |
+|---|---|---|---:|---|---:|---:|
+| Xavier Tam | President | **Level 1** — President + MA | **58** | everything | 150 | 63 |
+| Adrian Shum | Membership Affairs Officer | **Level 1** — President + MA | **58** | everything | 150 | 63 |
+| Mavis Tsang | Honorary Secretary | **Level 2** — HS + FD | **51** | contact, finance | 150 | 42 |
+| Oscar Szeto | Project Chairman | **Level 3** — Board / Chairman / SO | **30** | nothing | 150 | 0 |
+| Ka Chun Siu | — (Full Member) | **Level 4** — Member | **54** | nothing | **1** (own record) | 0 |
+
+The **Post** column is the headline post each of them holds, and it is the whole of what the screen shows. Xavier Tam's record also reads `BOD` and `FM`; the page says *President*, because that is the post the reader needs, and the rest sit in the tooltip.
 
 A Member on the bottom row sees more columns than a Chairman above them, and that is correct: they see everything about *themselves* and nothing about anyone else. The file they are served contains one row.
 
@@ -79,34 +82,59 @@ Two guardrails keep it honest:
 
 ---
 
-## Roles are not permissions
+## Posts are not permissions
 
-A member's **role record** lists every post they hold: `MAD & BOD & SO & FM`. Their **access tier** is one of four, and it is derived — **the highest role held wins**.
+Three different things used to share the word *role*, and the screens showed it. The vocabulary is now fixed, and it is the same in the UI, the CSV headers and the code:
+
+| Term | What it is | Example |
+|---|---|---|
+| **Post** | A job a member holds. They may hold several. | President, Honorary Secretary, Project Chairman |
+| **Permission level** | One of four, numbered 1 (most access) to 4. Derived from the posts held — the highest wins. | `Level 1 — President + MA` |
+| **Field access** | What that level may do with one group of fields. | `full` / `edit` / `read` / `masked` / `hidden` |
+
+The four levels, in order:
+
+| Level | Who | Reads | Changes |
+|---|---|---:|---|
+| **Level 1** | President + MA | 58 fields | everything; add and erase records |
+| **Level 2** | HS + FD | 51 fields | contact details, fee status |
+| **Level 3** | Board / Chairman / SO | 30 fields | nothing |
+| **Level 4** | Member | 54 fields, own record only | nothing |
+
+In the code a permission level is still called a `tier` — it is the key of `permissions.MATRIX` and the `permission_tier` column — and that name is left alone. The fix was to stop showing it to people, not to rename a column and break the one vocabulary the access rules speak.
+
+A member's **post record** lists every post they hold: `MAD & BOD & SO & FM`. Their **permission level** is one of four, and it is derived — **the highest post held wins**.
 
 ```
-role record   MAD & BOD & SO & FM
-                │     │    │    └── FM   -> Member                (rank 1)
-                │     │    └─────── SO   -> Board / Chairman / SO (rank 2)
-                │     └──────────── BOD  -> Board / Chairman / SO (rank 2)
-                └────────────────── MAD  -> President + MA        (rank 4)  ← wins
-access tier   President + MA
+post record   MAD & BOD & SO & FM
+              │     │     │    └── FM  ->  Member                 rank 1   Level 4
+              │     │     └── SO       ->  Board / Chairman / SO  rank 2   Level 3
+              │     └── BOD            ->  Board / Chairman / SO  rank 2   Level 3
+              └── MAD                  ->  President + MA         rank 4   Level 1  <- wins
+
+permission level   President + MA
+shown on screen    Membership Affairs Director  ->  Level 1 - President + MA
 ```
 
-So a record reading `FM & MA` is an **MA** on this system, not a Full Member — the tier is the highest of the roles held, never the first one listed and never the membership class. 39 of the 150 members hold a post that lifts them above their class; each one is a case where reading the first role, or the class, would have been wrong.
+**The level number is the inverse of the internal rank, and that is deliberate.** `TIER_RANK` counts *up* with seniority — `President + MA` is 4 — because it is the comparison key the highest-post-wins derivation runs `max()` over. People number levels the other way: level 1 is the top. Renumbering the rank would mean inverting every comparison in `roles.py` for no visible gain, so the display number is derived from it instead, as `level = 5 − rank`. [`scripts/verify.py`](scripts/verify.py) asserts the two are inverses for every pair, because reading the wrong one would label the President *Level 4* and no column count would catch it.
+
+So a record reading `FM & MA` is an **MA** on this system, not a Full Member — the level is the highest of the posts held, never the first one listed and never the membership class. 39 of the 150 members hold a post that lifts them above their class; each one is a case where reading the first post, or the class, would have been wrong.
+
+**The screens say it in words.** A record printed as `P & BOD & FM` asked the reader to know that `P` is the President, that `BOD` is a board seat, and that `FM` is not a post at all but the membership class everyone has — three unequal things joined by ampersands, with the most important one given no more weight than the least. Every screen now shows the **highest post, spelled out, and nothing else**: *President*, with `Board of Directors, Full Member` in the tooltip for anyone who wants the full record. The derivation is unchanged; only the reading of it is. [`web/lib/posts.ts`](web/lib/posts.ts) does the mapping, from the catalogue [`src/roles.py`](src/roles.py) already exported and nothing read.
 
 Everything follows from that single derivation:
 
-- [`src/roles.py`](src/roles.py) holds the catalogue — one row per post a member can hold, each pinned to exactly one tier. It is the only place a post grants access; there is no second list that could disagree with it.
+- [`src/roles.py`](src/roles.py) holds the catalogue — one row per post a member can hold, each pinned to exactly one permission level. It is the only place a post grants access; there is no second list that could disagree with it.
 - Adding a post to a member's record changes their access at their next page load. Nothing else is edited, and no administrator types a permission anywhere.
-- An unrecognised post code falls back to the Member tier — fails safe — and `verify.py` and the upload checker both name it rather than letting a new board post go unnoticed for a year.
+- An unrecognised post code falls back to the Member level — fails safe — and `verify.py` and the upload checker both name it rather than letting a new board post go unnoticed for a year.
 
-The sign-in screen and the banner show both halves side by side, always: `P & BOD & FM → President + MA via P`. The derivation is the explanation.
+The sign-in screen and the banner show both halves side by side, always: `President → Level 1 — President + MA`. The derivation is the explanation.
 
 ---
 
 ## Individual logins
 
-Every member has an account. It carries a `member_id` and **no permissions of its own** — the tier is re-read from the role record on every request, so a promotion takes effect immediately and a revoked post narrows access immediately, with no cookie to reissue.
+Every member has an account. It carries a `member_id` and **no permissions of its own** — the permission level is re-read from the post record on every request, so a promotion takes effect immediately and a revoked post narrows access immediately, with no cookie to reissue.
 
 - Username is the member's JCI Victoria address; passwords are stored as PBKDF2-HMAC-SHA256 (120,000 rounds) with a per-account salt.
 - Sign-in failures are undifferentiated — a wrong password, an unknown address and a disabled account return the same message, so the form cannot be used to enumerate who is in the chapter.
@@ -121,11 +149,43 @@ Set `JCI_SESSION_SECRET` in production; the app refuses to issue a session witho
 
 ## Who can write
 
-**Only the President and the MA team** — the `President + MA` tier — can upload and replace the member database, at `/upload`. Not a flag on an account: an MAO whose record reads `MAO & FM` reaches that page, and a Vice President whose record reads `BOD & VP & FM` does not.
+There are two write paths, and the permission matrix decides both.
+
+### Editing a record, field by field
+
+The matrix has always carried an `edit` level — HS + FD on contact and finance — and for a long time nothing acted on it: `apply()` treated `full`, `edit` and `read` identically, because the only way to change anything was to replace the whole workbook. The matrix promised an edit right the app never granted. It grants it now.
+
+| Permission level | May change | May not change |
+|---|---|---|
+| **Level 1** — President + MA | every field group; add and erase records | derived fields; a member ID |
+| **Level 2** — HS + FD | contact details, fee status | names, posts, dates of birth, board motions |
+| **Level 3** — Board / Chairman / SO | nothing | everything |
+| **Level 4** — Member | nothing | everything |
+
+Hover any field a post may change and a pencil appears; a post that may not change it sees the field exactly as it always looked, with no greyed-out control to explain. On the member record that is the profile, contact, employment and governance fields; on the fee table it is this year's status, which is where a Finance Director's edit right actually lands.
+
+**`full` is a read level everywhere except at the top, and that distinction is load-bearing.** `identity` is `full` for *all four* levels, because who holds which post is published to the chapter. Reading that as a write right would have let a project Chairman rewrite anyone's name and join date — and would have let an Honorary Secretary type `P` into their own board post column and be President + MA on the next page load. Seeing the post record is not the same as setting it, so only the level that owns access may write an access-granting field. [`scripts/verify.py`](scripts/verify.py) asserts that path closed for all three lower levels.
+
+Four more rules keep an edit honest:
+
+- **Only stored columns are writable.** Age, health score, fee status and requirement status are recomputed on every read, so a write to one is refused *by name* — `health_score is derived, not stored` — rather than accepted and silently overwritten by the next rebuild. Correct the date of birth and the age follows.
+- **A lifecycle change writes to the journey.** Changing a member's class to FM appends an `Inducted` event to the append-only `status_events` table, because a record reading FM whose timeline never showed an induction is a record that has lost its own history.
+- **Every write rebuilds every payload.** The payloads *are* the permission boundary, so a database that has moved on from them is one whose access rules are stale. Mark a fee paid and the member's health score moves 49 → 79, rule 4 drops from 23 alerts to 22, and the Chairman's file still has no `fee_status_current` column in it.
+- **A post change is logged as a post change.** The activity log separates `EDIT` from `EDIT_ACCESS`, because filing "gave this member a board seat" next to "corrected a phone number" loses the only distinction an audit is for.
+
+### Adding and erasing a record
+
+Both are **President + MA only**, and neither is reachable from a field-group edit right. Adding allocates the member ID rather than accepting one, starts the member as a PM, and writes their first journey event.
+
+Erasing is deliberately not how someone leaves the chapter. A departure is a *status* of Resigned or Removed carrying a BOD motion, and it **keeps** the record — that history is what the movement chart and the departure reasons are built from. Erasing destroys the row and every fee, event, project line and login joined to it, so it refuses on an Active member, requires a typed reason of at least ten characters, and requires the member ID typed back to confirm. The reason goes to the activity log, where it is the only trace left.
+
+### Replacing the whole database
+
+**Only the President and the MA team** — the `President + MA` level — can upload and replace the member database, at `/upload`. Not a flag on an account: an MAO whose record reads `MAO & FM` reaches that page, and a Vice President whose record reads `BOD & VP & FM` does not.
 
 Uploading is two steps, never one. A submitted workbook is **staged and checked** — sheet by sheet, row counts, missing columns, duplicate member IDs, unrecognised class or status values, and role codes the catalogue does not know — and nothing on disk changes. A second, separate action **applies** it: loads the workbook, recomputes every derived field, re-derives every tier, and rebuilds every payload. That last step is not optional, because the payloads *are* the permission boundary; a database that has moved on from them is one whose access rules are stale.
 
-The server action re-checks the tier itself rather than trusting that a form was rendered — a server action is a POST endpoint, and a page not drawing a button is not an access control.
+Every write path re-checks the permission level in the server action, and then [`src/mutations.py`](src/mutations.py) checks it again in Python beside the matrix that granted it — a server action is a POST endpoint, and a page not drawing a button is not an access control. None of the rules live in TypeScript: `web/lib/mutations.ts` shells out to `scripts/mutate.py` exactly the way the uploader shells out to the workbook checker, so there is no second copy of the matrix that could disagree with the first.
 
 ---
 
@@ -141,7 +201,7 @@ cd smart-member-management-platform
 pip install -r requirements.txt
 python scripts/load_data.py      # Excel  -> data/members.db
 python scripts/export_json.py    # SQLite -> web/data/payload.*.json + members/*.json
-python scripts/verify.py         # 47 acceptance checks, exits 1 on failure
+python scripts/verify.py         # 62 acceptance checks, exits 1 on failure
 
 # 2. Run the app
 cd web
@@ -153,22 +213,24 @@ npm run dev                      # http://localhost:3000
 
 ### Signing in
 
-The app opens on `/login`. Expand **Demonstration logins** for seeded accounts across all four tiers — click one to fill the form:
+The app opens on `/login`. Expand **Demonstration logins** for seeded accounts across all four permission levels — click one to fill the form:
 
-| Account | Role record | Tier | Password |
+| Account | Post | Permission level | Password |
 |---|---|---|---|
-| `xaviertam@vjc.org.hk` | `P & BOD & FM` | President + MA | `Victoria@0036` |
-| `mavistsang@vjc.org.hk` | `HS & BOD & SO & FM` | HS + FD | `Victoria@0011` |
-| `oscar.szeto@vjc.org.hk` | `Chairman & FM` | Board / Chairman / SO | `Victoria@0003` |
-| `kachun.siu@vjc.org.hk` | `FM` | Member | `Victoria@0001` |
+| `xaviertam@vjc.org.hk` | President | Level 1 — President + MA | `Victoria@0036` |
+| `mavistsang@vjc.org.hk` | Honorary Secretary | Level 2 — HS + FD | `Victoria@0011` |
+| `oscar.szeto@vjc.org.hk` | Project Chairman | Level 3 — Board / Chairman / SO | `Victoria@0003` |
+| `kachun.siu@vjc.org.hk` | — (Full Member) | Level 4 — Member | `Victoria@0001` |
 
 Every account follows `Victoria@<last four of member id>`. The panel is synthetic-data-only — set `JCI_DEMO_ACCOUNTS=0` and rebuild the payloads to ship an empty list.
 
-### Exploring the four tiers
+### Exploring the four permission levels
 
 Open a member record as **Xavier Tam**, then sign in as **Oscar Szeto** and open the same record: date of birth, fee status, motion history and health score are gone from the page — and from the payload behind it. Then sign in as the President and open the **Activity log** to see the rows those sign-ins and clicks just created, each under a person's name.
 
-Each tier also has a different navigation: Chairman and Member have no Dashboard and no Alerts page, only President + MA can open the Activity log, the Growth tree and the member-database upload, and the age rings are absent from the HS + FD dashboard entirely — an average age is still an age, and that tier holds masked access to the personal group.
+To see the write half, sign in as **Mavis Tsang** (HS + FD) and open any member. Hovering the mobile number shows a pencil; hovering the name does not, and neither does anything in the profile — she may read the whole identity group and change none of it. Open the fee table, set this year's status to **Paid**, and watch the health score and the alert count move: the value is not stored, it is recomputed from the row she just wrote. Then sign in as **Oscar Szeto** and hover the same fields — there are no pencils anywhere, and the fee table is not on his page at all.
+
+Each level also has a different navigation: Chairman and Member have no Dashboard and no Alerts page, only President + MA can open the Activity log, the Growth tree and the member-database upload, and the age rings are absent from the HS + FD dashboard entirely — an average age is still an age, and that level holds masked access to the personal group.
 
 ---
 
@@ -216,7 +278,9 @@ Thresholds are a single `THRESHOLDS` dict. Three of these rules encode a judgeme
 
 Access is read from a field's **group**, never a hardcoded field name, so adding a column to a group changes its visibility everywhere at once.
 
-| Field group | President + MA | HS + FD | Board / Chairman / SO | Member |
+**Read the levels as both halves of one answer.** `full` and `edit` carry a write right; `read`, `masked`, `hidden` and `own` do not — except that `full` only adds writing for President + MA, the level that owns the member database. That is why `identity` reads `full` across the row and is still editable by exactly one level.
+
+| Field group | Level 1<br>President + MA | Level 2<br>HS + FD | Level 3<br>Board / Chairman / SO | Level 4<br>Member |
 |---|---|---|---|---|
 | identity | full | full | full | own |
 | contact | full | edit | read¹ | own |
@@ -232,9 +296,11 @@ Access is read from a field's **group**, never a hardcoded field name, so adding
 
 **Hidden means the column is dropped.** Masked means the value is replaced before export. Neither is ever done in CSS or in a React component.
 
-Pages are gated the same way, on the tier rather than on the account:
+**Own is a read level.** A member sees their whole record and changes none of it — self-service updates are a chapter policy decision rather than a technical one, and the member record is the chapter's record *of* a member. Moving `own` into the write levels is a one-line change in [`src/mutations.py`](src/mutations.py) if the board decides otherwise.
 
-| Page | President + MA | HS + FD | Board / Chairman / SO | Member |
+Pages are gated the same way, on the permission level rather than on the account:
+
+| Page | Level 1<br>President + MA | Level 2<br>HS + FD | Level 3<br>Board / Chairman / SO | Level 4<br>Member |
 |---|:--:|:--:|:--:|:--:|
 | Dashboard | ● | ● | — | — |
 | Alerts | ● | ● | — | — |
@@ -243,24 +309,27 @@ Pages are gated the same way, on the tier rather than on the account:
 | Growth tree | ● | — | — | — |
 | Activity log | ● | — | — | — |
 | Export | ● | ● | — | — |
-| **Member database (write)** | ● | — | — | — |
+| **Member database (replace)** | ● | — | — | — |
+| **Edit a field** | every group | contact, fees | — | — |
+| **Add / erase a record** | ● | — | — | — |
 
-The circular age diagram follows the field group rather than the page: it ships only to a tier holding **unmasked** access to `personal`, so it is absent from the HS + FD dashboard file, not hidden on their screen.
+The circular age diagram follows the field group rather than the page: it ships only to a level holding **unmasked** access to `personal`, so it is absent from the HS + FD dashboard file, not hidden on their screen.
 
 ---
 
 ## Verification
 
-`scripts/verify.py` runs 47 acceptance checks and exits non-zero on any failure:
+`scripts/verify.py` runs 62 acceptance checks and exits non-zero on any failure:
 
 - **Row counts** — 150 members, 443 status events, 409 fee records, 136 OC participations, 17 projects.
 - **Derived fields vs. the source spreadsheet** — every derived column the workbook also holds is compared across all 150 rows, not spot-checked.
 - **Alert counts** — all seven rules are asserted against their expected values (4, 10, 6, 23, 5, 7, 8). A rule that silently stops firing fails the build.
 - **Health score** — every PM and FM scored, every SM `N/A`, all scores within 0–100.
-- **Permissions** — access provably narrows with tier (58 > 51 > 30 columns), the Chairman payload is checked for four specific dropped columns, and a Member resolves to exactly one row.
+- **Permissions (read)** — access provably narrows with level (58 > 51 > 30 columns), the Chairman payload is checked for four specific dropped columns, and a Member resolves to exactly one row.
+- **Permissions (write)** — eleven checks on who may *change* a record: President + MA edits all seven groups, HS + FD edits exactly contact and finance, the other two levels edit nothing, no level below the top can write an access-granting field, only the top may add or erase, and derived fields and member IDs are refused outright. A wrong reading of `full` is a privilege-escalation path rather than a leak, so it would not have shown up in any column count.
 - **Payload contents** — the probe member's real date of birth, mobile, personal email and removal reason are asserted absent from the Chairman's JSON; the age rings and growth tree are asserted present in the admin file and absent from the HS + FD one.
-- **Roles and tiers** — every role code in the data is in the catalogue, and for all 150 members the derived tier is asserted equal to the highest role held. 39 members are confirmed lifted above their class by a post.
-- **Accounts** — one per member, unique usernames, a unique salt each, hashes only, and every removed or resigned member disabled. Account tiers are asserted equal to the tiers derived from the role record, so the login path and the payload path cannot drift.
+- **Posts and permission levels** — every post code in the data is in the catalogue, and for all 150 members the derived level is asserted equal to the highest post held. Four further checks pin the displayed level numbers to the internal ranks they invert, so the President cannot silently start reading as *Level 4*. 39 members are confirmed lifted above their class by a post.
+- **Accounts** — one per member, unique usernames, a unique salt each, hashes only, and every removed or resigned member disabled. Account permission levels are asserted equal to the levels derived from the post record, so the login path and the payload path cannot drift.
 - **Per-member payloads** — every Member-tier file is asserted to hold exactly its own record and no one else's.
 - **PII** — every mobile matches the synthetic format and every personal email was regenerated.
 
@@ -286,21 +355,25 @@ smart-member-management-platform/
 │   ├── derived.py       derived fields + verification against the sheet
 │   ├── health.py        health score, weights in one dict
 │   ├── alerts.py        the seven rules
-│   ├── roles.py         the role catalogue; highest role -> access tier
+│   ├── roles.py         the post catalogue; highest post -> permission level
 │   ├── auth.py          one account per member, PBKDF2 hashes
 │   ├── growth.py        promotion ladder, referral tree, age rings
-│   └── permissions.py   the field-group matrix + page gates
+│   ├── permissions.py   the field-group matrix + page gates
+│   └── mutations.py     the write half of that matrix: who may change what
 ├── scripts/
 │   ├── load_data.py     Excel -> SQLite, regenerates contact PII
 │   ├── export_json.py   SQLite -> per-tier payloads + accounts
 │   ├── validate_upload.py  checks a submitted workbook before it is applied
-│   └── verify.py        47 acceptance checks
+│   ├── mutate.py        applies one write, re-checking the permission level
+│   └── verify.py        62 acceptance checks
 └── web/
     ├── app/
     │   ├── login/       sign-in page and its server actions
     │   └── (app)/       the signed-in shell: 8 pages, one session guard
-    ├── components/      sidebar, account card, charts, rings, tree, tables
-    ├── lib/             theme tokens, server-only data + auth + admin
+    ├── components/      sidebar, account card, charts, rings, tree, tables,
+    │                    in-place field editors, add/erase panels
+    ├── lib/             theme tokens, server-only data + auth + admin,
+    │                    posts.ts (post codes -> words), mutations.ts (writes)
     └── data/            generated payloads and accounts, committed
 ```
 
@@ -345,7 +418,11 @@ Stated rather than hidden.
 
 **The activity log lives in server memory for the length of a session.** It is append-only within the process and reachable only through the Activity page. The next stage writes it to the append-only `activity_log` table already defined in the schema, where it survives restarts and cannot be edited from the app.
 
-**Writes are limited to replacing the whole member database.** There is no per-field editing in the app: the President and MA team upload a workbook and it replaces the records. Email and WhatsApp are still not sent from here. Passwords are seeded from the member id and there is no reset flow, no rate limiting on sign-in and no second factor — all three are needed before this holds real contact details.
+**Editing writes to the local filesystem, so it needs a host with one.** An edit writes to SQLite and re-runs the same Python export that builds the demo, which is what keeps the permission boundary in step with the data. That needs Python and a writable disk, so the write paths work under `npm run dev` and on any ordinary Node host, and **not on Vercel**, whose filesystem is read-only — a deployment there stays the read-only demo the payloads already make it. Moving the writes to a hosted Postgres, with the export running as a job, is the next stage.
+
+**Edits are one field at a time, and there is no undo.** A form that posts thirty columns cannot be checked against a permission matrix without unpicking which of them the level may actually write, and the version that silently drops the rest is the version that looks like it worked. The journey table records class and status changes, but a corrected phone number is only recoverable from the activity log, which does not survive a restart.
+
+Email and WhatsApp are still not sent from here. Passwords are seeded from the member id and there is no reset flow, no rate limiting on sign-in and no second factor — all three are needed before this holds real contact details.
 
 **The activity log lives in server memory** for the length of the process. The append-only `activity_log` table is already in the schema; moving the log into it is what makes it survive a restart and stop being editable from the app.
 
@@ -365,9 +442,9 @@ Two further questions need a chapter, not a codebase, to answer: **how long a re
 
 ## Documentation
 
-- This README — the whole of it. How the logic works, how permissions are enforced, how roles resolve to tiers, and where the build made a judgement call.
+- This README — the whole of it. How the logic works, how permissions are enforced, how posts resolve to permission levels, and where the build made a judgement call.
 - [`.cursorrules`](.cursorrules) — architectural constraints for anyone changing the code.
-- The source comments — each module opens with what it is for and why it is built the way it is. `src/roles.py`, `src/permissions.py` and `src/growth.py` are the three worth reading first.
+- The source comments — each module opens with what it is for and why it is built the way it is. `src/roles.py`, `src/permissions.py` and `src/mutations.py` are the three worth reading first: the posts, what each level may read, and what each level may change.
 
 Source comments carry `PRD 4.2`-style citations to the original specification. That document is not in this repository; the citations are left in place as provenance, and the [Glossary](#glossary) and the sections above cover everything they refer to.
 

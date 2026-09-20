@@ -37,6 +37,41 @@ TIERS = [ADMIN, SECRETARIAT, LEADER, MEMBER]
 # Higher wins. This is the whole of "use the highest role as the standard".
 TIER_RANK: dict[str, int] = {ADMIN: 4, SECRETARIAT: 3, LEADER: 2, MEMBER: 1}
 
+# --------------------------------------------------------------------------
+# What a person reads. The numbers above are a comparison key -- higher wins,
+# and max() over them is the derivation -- so they count UP with seniority.
+# People number levels the other way: level 1 is the top. Both are correct
+# and they are inverses, so the display number is derived here rather than
+# by renumbering TIER_RANK, which would mean inverting every comparison in
+# this module for no visible gain.
+#
+#   TIER_RANK   4  3  2  1      (internal: higher wins)
+#   level       1  2  3  4      (shown: 1 is the top)
+# --------------------------------------------------------------------------
+DISPLAY_LEVEL: dict[str, int] = {
+    tier: len(TIER_RANK) + 1 - rank for tier, rank in TIER_RANK.items()
+}
+
+
+def level_of(tier: str) -> int:
+    """1 for President + MA, 4 for Member. The number people say."""
+    return DISPLAY_LEVEL.get(tier, len(TIER_RANK))
+
+
+def level_label(tier: str) -> str:
+    """'Level 1 - President + MA'. The number leads, the name explains it.
+
+    The name is kept rather than dropped: "Level 1" alone ranks the levels
+    but says nothing about who holds one, and who holds one is the thing
+    this build exists to make legible.
+    """
+    return f"Level {level_of(tier)} \u2014 {tier}"
+
+
+def level_short(tier: str) -> str:
+    """'Level 1', for places too tight for the name."""
+    return f"Level {level_of(tier)}"
+
 # Kinds of role, in the order a member's role record reads.
 CLASS, BOARD, NATIONAL, PROJECT, HONOUR = (
     "class", "board", "national", "project", "honour",

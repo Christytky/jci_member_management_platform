@@ -57,25 +57,25 @@ export default async function LoginPage() {
 
           <ol className="mt-4 space-y-4 text-[12.5px] leading-5 text-ink-muted">
             <li>
-              <span className="label block">1 · Your role record</span>
+              <span className="label block">1 · The posts you hold</span>
               <span className="mt-1 block">
                 Every post you hold, exactly as the chapter records it — class, board
                 post, project post, national post.
               </span>
             </li>
             <li>
-              <span className="label block">2 · The highest role wins</span>
+              <span className="label block">2 · The highest post wins</span>
               <span className="mt-1 block">
                 A record reading{" "}
                 <strong className="font-semibold text-ink">FM &amp; MA</strong> is an MA
-                on this system, not a Full Member. The tier is the highest of the roles
-                held, never the first one listed.
+                on this system, not a Full Member. The permission level is the highest of
+                the posts held, never the first one listed.
               </span>
             </li>
             <li>
-              <span className="label block">3 · The tier picks the fields</span>
+              <span className="label block">3 · The level picks the fields</span>
               <span className="mt-1 block">
-                Fields outside your tier are dropped before the page is built. They are
+                Fields outside your level are dropped before the page is built. They are
                 not hidden with styling — they are absent from the response.
               </span>
             </li>

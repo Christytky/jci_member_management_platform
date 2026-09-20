@@ -11,12 +11,30 @@ Architecture — do not change without discussing it first:
   no auth library. Do not add one.
 
 Rules:
-- The app is READ-ONLY on member data. The only thing written at runtime is
-  the activity log.
 - Permission filtering happens in Python, in src/permissions.py, before the
   JSON is written. Never filter in a React component, and never ship a field
   to the client that the role may not see. Hidden field groups are DROPPED,
   never hidden with CSS.
+- WRITES go through src/mutations.py and scripts/mutate.py, never straight to
+  SQLite from TypeScript. That module owns which permission level may change
+  which field group, what a valid value is, and which changes owe the journey
+  an event. web/lib/mutations.ts only shells out to it.
+- A write MUST be followed by scripts/export_json.py. The payloads are the
+  permission boundary, so a database that has moved on from them is one whose
+  access rules are stale. Then call clearPayloadCache() — lib/data.ts keeps
+  parsed payloads in a module-level Map that revalidatePath() does not reach.
+- Only STORED columns are writable. Derived fields (age, health score, fee
+  status, requirement status) are recomputed on every read; a write to one is
+  refused by name in mutations.py rather than accepted and then overwritten.
+- FULL in permissions.MATRIX is a READ level for every tier except the one
+  that owns the member database. identity is FULL for all four tiers, so
+  reading FULL as a write right would let a Chairman rewrite the chapter's
+  identity records and let an HS type "P" into their own board post and
+  become President + MA. EDIT is the write level; FULL adds write only for
+  President + MA.
+- Adding, editing and erasing a member re-checks the tier in the server
+  action AND again in Python. A page not drawing a button is not an access
+  control — a server action is a POST endpoint.
 - Field-group permissions must follow the data into EVERY table, not just
   members. status_events.reason once leaked a removal reason that the
   governance group was correctly hiding. Check new tables against the matrix.
@@ -36,4 +54,9 @@ Rules:
 - After changing anything in src/ or scripts/: re-run
   `python scripts/export_json.py && python scripts/verify.py`.
   verify.py must exit 0. It checks the seven alert counts against the PRD.
+- Vocabulary, in the UI and in comments: a member holds POSTS (President,
+  Honorary Secretary), which earn a PERMISSION LEVEL (one of four), which
+  grants a FIELD ACCESS level per group (full / edit / read / masked /
+  hidden). Do not write "role" for a permission or "tier" in user-facing
+  copy. Post codes are rendered through web/lib/posts.ts, never printed raw.
 - Do not add features that are not in the PRD. If the PRD is silent, ask.

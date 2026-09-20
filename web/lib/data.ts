@@ -191,8 +191,24 @@ export type Access = {
   banner: string;
   pages: Record<string, boolean>;
   can_write: boolean;
+  /** Field groups this permission level may CHANGE, not merely read. */
+  editable_groups: string[];
+  can_create: boolean;
+  can_delete: boolean;
+  /** Spec per writable field, so a form knows what input to draw. */
+  writable_fields: Record<string, WritableField>;
+  write_banner: string;
   column_count: number;
   total_fields: number;
+};
+
+/** One field this permission level may write. From src/mutations.WRITABLE. */
+export type WritableField = {
+  name: string;
+  label: string;
+  group: string;
+  kind: "text" | "date" | "choice" | "int" | "email" | "mobile" | "member";
+  choices: string[] | null;
 };
 
 export type Payload = {
@@ -241,6 +257,19 @@ const TIER_SLUG: Record<Tier, string> = {
 };
 
 const cache = new Map<string, Omit<Payload, "viewer">>();
+
+/**
+ * Drop every parsed payload.
+ *
+ * Load-bearing after any write. The payloads are read from disk once and
+ * kept in this map for the life of the process, so a rebuild that rewrites
+ * the files on disk would otherwise be invisible -- the next render would
+ * serve the copy parsed before the edit. revalidatePath() does not reach
+ * this map; it clears Next's render cache, not a module singleton.
+ */
+export function clearPayloadCache(): void {
+  cache.clear();
+}
 
 export async function listTiers(): Promise<TierSummary[]> {
   const raw = await fs.readFile(path.join(DATA_DIR, "tiers.json"), "utf8");
@@ -325,4 +354,20 @@ export function canOpen(payload: Payload, page: string): boolean {
 /** True only for the tier that owns the member database (President + MA). */
 export function canWrite(payload: Payload): boolean {
   return payload.access.can_write === true;
+}
+
+/**
+ * True when this permission level may CHANGE the fields in a group.
+ *
+ * Distinct from visible_groups, which answers whether it may read them.
+ * identity is readable by all four levels and writable by one, so the two
+ * questions genuinely have different answers and need different calls.
+ */
+export function canEdit(payload: Payload, group: string): boolean {
+  return payload.access.editable_groups?.includes(group) === true;
+}
+
+/** The spec for one writable field, or null when this level may not write it. */
+export function fieldSpec(payload: Payload, field: string): WritableField | null {
+  return payload.access.writable_fields?.[field] ?? null;
 }

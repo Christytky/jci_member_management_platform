@@ -63,7 +63,7 @@ export default async function AlertsPage() {
       />
 
       {payload.alerts.length === 0 ? (
-        <Empty>No alerts are visible to your role.</Empty>
+        <Empty>No alerts are visible at your permission level.</Empty>
       ) : (
         <div className="space-y-5">
           {ruleNos.map((no) => {

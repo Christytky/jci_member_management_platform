@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { record } from "@/lib/activity";
 import { tryGetPayload } from "@/lib/data";
+import { levelLabel, postLabel, summarisePosts } from "@/lib/posts";
 
 /**
  * Role-scoped CSV (PRD 6.7). The columns are whatever survived
@@ -17,7 +18,7 @@ export async function GET() {
   }
 
   if (!payload.access.pages.export) {
-    return new NextResponse("Not available to your role", { status: 403 });
+    return new NextResponse("Not available at your permission level", { status: 403 });
   }
 
   const rows = payload.members;
@@ -31,12 +32,17 @@ export async function GET() {
   };
 
   // The watermark names an account, not a persona. A forwarded file now
-  // says which member produced it and which of their roles let them.
+  // says which member produced it and which post let them -- in words, so
+  // the person who receives the file does not need the code list to read it.
+  const posts = summarisePosts(payload.viewer.roles);
   const header = [
     `# JCI Victoria - Smart Member Management Platform`,
     `# Exported by: ${payload.viewer.name} <${payload.viewer.username}>`,
-    `# Role record: ${payload.viewer.role_record}`,
-    `# Access tier: ${payload.access.tier} (via ${payload.viewer.governing_role ?? "-"})`,
+    `# Post: ${posts.full}`,
+    `# Permission level: ${levelLabel(payload.access.tier)}` +
+      (payload.viewer.governing_role
+        ? ` · earned by ${postLabel(payload.viewer.governing_role)}, the highest post held`
+        : ""),
     `# Fields: ${cols.length} of ${payload.access.total_fields}`,
     `# Generated: ${now}`,
     `# Synthetic demo data - not real member records`,

@@ -5,6 +5,7 @@ import { AlertCircle, ChevronDown, LoaderCircle } from "lucide-react";
 
 import { signIn } from "@/app/login/actions";
 import type { DemoAccount } from "@/lib/auth";
+import { levelLabel, parseRecord, summarisePosts } from "@/lib/posts";
 
 /**
  * The form itself. A client component only so it can show a pending state
@@ -107,15 +108,29 @@ export function LoginForm({ demo }: { demo: DemoAccount[] }) {
                     <span className="block truncate text-[11px] text-ink-faint tnum">
                       {d.username}
                     </span>
-                    {/* The role record, then the tier it earns. Showing both
-                        side by side is the fastest way to make the rule
-                        legible: "Chairman & NVP & FM" is not four levels of
-                        access, it is one. */}
+                    {/* The post, then the permission level it earns. Showing
+                        both side by side is the fastest way to make the rule
+                        legible: a Chairman who is also an NVP and an FM is
+                        not three levels of access, it is one. The post is in
+                        words, and the rest of the record is in the tooltip —
+                        a list of codes made the reader do the decoding at the
+                        one moment they have no context yet. */}
                     <span className="mt-1 block text-[11px] leading-4 text-ink-muted">
-                      <span className="font-semibold text-ink">{d.role_record}</span>
+                      {(() => {
+                        const posts = summarisePosts(parseRecord(d.role_record));
+                        return (
+                          <>
+                            <span
+                              className="font-semibold text-ink"
+                              title={`Posts held — ${posts.full}`}
+                            >
+                              {posts.headline}
+                            </span>
+                          </>
+                        );
+                      })()}
                       <span className="px-1 opacity-40">→</span>
-                      {d.permission_tier}
-                      {d.governing_role ? ` via ${d.governing_role}` : ""}
+                      {levelLabel(d.permission_tier)}
                     </span>
                   </span>
                 </button>

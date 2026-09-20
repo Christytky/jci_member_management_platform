@@ -2,6 +2,7 @@ import { Download } from "lucide-react";
 
 import { Card, PageHead, Restricted } from "@/components/ui";
 import { getPayload } from "@/lib/data";
+import { levelLabel, summarisePosts } from "@/lib/posts";
 
 /**
  * PRD 6.7. The answer to "people download the sheet and forward it": the
@@ -26,7 +27,7 @@ export default async function ExportPage() {
     <>
       <PageHead
         title="Export"
-        subtitle="A CSV of exactly the columns your role may see — watermarked and logged"
+        subtitle="A CSV of exactly the columns your permission level may see — watermarked and logged"
       />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
@@ -71,8 +72,8 @@ export default async function ExportPage() {
           <pre className="overflow-x-auto rounded-lg bg-surface-sunken p-3 text-[11px] leading-5 tnum text-ink-muted">
 {`# JCI Victoria — Smart Member Management Platform
 # Exported by: ${payload.viewer.name} <${payload.viewer.username}>
-# Role record: ${payload.viewer.role_record}
-# Access tier: ${payload.access.tier}
+# Post: ${summarisePosts(payload.viewer.roles).full}
+# Permission level: ${levelLabel(payload.access.tier)}
 # Fields: ${cols} of ${payload.access.total_fields}
 # Generated: <timestamp>
 # Synthetic demo data`}

@@ -5,6 +5,7 @@ import { GrowthTree } from "@/components/GrowthTree";
 import { Card, ClassChip, Empty, Kpi, PageHead, Restricted } from "@/components/ui";
 import { record } from "@/lib/activity";
 import { getPayload } from "@/lib/data";
+import { parseRecord, summarisePosts } from "@/lib/posts";
 
 export const metadata = { title: "Growth tree — JCI Victoria" };
 
@@ -98,7 +99,12 @@ export default async function GrowthPage() {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[13px] font-semibold">{r.name}</span>
                       <span className="block text-[11px] leading-4 text-ink-faint">
-                        {r.line_size} in the line below · {r.role_record ?? r.member_class}
+                        {r.line_size} in the line below ·{" "}
+                        {/* The post in words, not the raw record. A recruiter
+                            list is read fast, and "MAD & BOD & SO & FM" is
+                            four codes where one job title was wanted. */}
+                        {summarisePosts(parseRecord(r.role_record)).headline ||
+                          r.member_class}
                       </span>
                     </span>
                     <ClassChip value={r.member_class ?? "—"} />

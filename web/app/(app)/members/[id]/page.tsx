@@ -2,12 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Lock } from "lucide-react";
 
+import { EditableCell, EditableField } from "@/components/EditableField";
 import { PromotionLadder } from "@/components/PromotionLadder";
-import { BandChip, Card, ClassChip, Empty, Masked, PageHead } from "@/components/ui";
+import { DeleteMemberPanel } from "@/components/RecordAdmin";
+import {
+  BandChip, Card, ClassChip, Empty, Masked, PageHead, PermissionChip, PostChip,
+} from "@/components/ui";
 import { record } from "@/lib/activity";
 import { promotionHistory } from "@/lib/growth";
-import { getPayload } from "@/lib/data";
-import type { Member, Payload } from "@/lib/data";
+import { fieldSpec, getPayload } from "@/lib/data";
+import type { Member, Payload, WritableField } from "@/lib/data";
+import { parseRecord, postLabel } from "@/lib/posts";
 import { healthBand, status } from "@/lib/theme";
 
 /**
@@ -34,7 +39,7 @@ export default async function MemberPage({
       <>
         <PageHead title="Member record" />
         <Empty>
-          Your role can only open your own record.{" "}
+          Your permission level only opens your own record.{" "}
           <Link
             href={`/members/${payload.viewer.member_id}`}
             className="font-semibold text-jci-navy underline underline-offset-2"
@@ -64,6 +69,42 @@ export default async function MemberPage({
   });
 
   const can = (g: string) => payload.access.visible_groups.includes(g);
+  // The spec for a field this permission level may CHANGE, or null. Passed
+  // to every field below; a null spec renders the plain read-only value, so
+  // the editable and the read-only page are the same page.
+  const spec = (f: string) => fieldSpec(payload, f);
+  // The reference year, from the payload's pinned as-of date rather than the
+  // clock — derived.py computes the fee status against the same date, so
+  // reading the clock here would offer an editor on a row that is not the
+  // one the status is derived from.
+  const currentYear = Number(payload.as_of.slice(0, 4));
+
+  /**
+   * A field that becomes editable exactly when this permission level may
+   * write it. spec() returns null otherwise, and EditableField then renders
+   * the same read-only <dt>/<dd> pair Field does — so the page a Chairman
+   * sees is the page it always was, with no disabled controls to explain.
+   */
+  const Edit = (props: {
+    f: string;
+    label: string;
+    value?: string | null;
+    mono?: boolean;
+    span?: number;
+    masked?: boolean;
+    emptyText?: string;
+  }) => (
+    <EditableField
+      label={props.label}
+      value={props.value}
+      memberId={member.member_id}
+      spec={spec(props.f)}
+      mono={props.mono}
+      span={props.span}
+      masked={props.masked}
+      emptyText={props.emptyText}
+    />
+  );
   const events = payload.events
     .filter((e) => e.member_id === id)
     .sort((a, b) => b.event_date.localeCompare(a.event_date));
@@ -92,8 +133,12 @@ export default async function MemberPage({
         title={member.full_name}
         subtitle={[
           member.member_status,
-          member.board_post_2026 ? `2026 post: ${member.board_post_2026}` : null,
-          member.senior_designation,
+          // In words. "2026 post: MAD" asked the reader to know the code;
+          // "Membership Affairs Director" is the same fact, readable.
+          member.board_post_2026
+            ? `${postLabel(member.board_post_2026)} · 2026`
+            : null,
+          member.senior_designation ? postLabel(member.senior_designation) : null,
         ]
           .filter(Boolean)
           .join(" · ")}
@@ -102,27 +147,15 @@ export default async function MemberPage({
 
       <div className="mb-5 flex flex-wrap items-center gap-2">
         <ClassChip value={member.member_class} />
-        {/* The role record, and the tier it earns. Skipped entirely for a
-            member whose only role is their class -- the chip beside it
-            already says PM, and "PM → Member via PM" is three ways of
-            writing the same word. The pair earns its space exactly when a
-            member holds a post, which is when the question "why can this
-            person see that?" actually arises. */}
-        {member.roles && member.roles.split(";").length > 1 && (
-          <>
-            <span
-              className="chip bg-surface-sunken text-ink-muted"
-              title="Every role held, highest first"
-            >
-              {member.role_record}
-            </span>
-            {member.permission_tier && (
-              <span className="chip bg-jci-blue/10 text-jci-navy">
-                {member.permission_tier}
-                {member.governing_role ? ` · via ${member.governing_role}` : ""}
-              </span>
-            )}
-          </>
+        {/* The post this member holds, then the permission level it earns.
+            Two chips for two different facts -- what they ARE, and what they
+            may SEE -- where there used to be one string mixing both. The
+            headline is the highest post; the rest are in its tooltip. Both
+            are skipped for a member holding no post, because the class chip
+            beside them already says PM and there is no rank to report. */}
+        <PostChip codes={parseRecord(member.roles ?? member.role_record)} />
+        {member.permission_tier && parseRecord(member.roles).length > 1 && (
+          <PermissionChip level={member.permission_tier} via={member.governing_role} />
         )}
         {member.years_membership !== null && (
           <span className="chip bg-surface-sunken text-ink-muted tnum">
@@ -143,10 +176,19 @@ export default async function MemberPage({
         <div className="space-y-5">
           <Card title="Profile">
             <dl className="grid grid-cols-2 gap-x-5 gap-y-3.5">
+              {/* member_id has no editor at any level: it is the key every
+                  other table joins on, set once when the record is created. */}
               <Field label="Member ID" value={member.member_id} mono />
-              <Field label="Class" value={member.member_class} />
-              <Field label="Joined" value={member.date_joined} mono />
-              <Field label="Inducted" value={member.induction_date ?? "not yet"} mono />
+              <Edit f="member_class" label="Class" value={member.member_class} />
+              <Edit f="date_joined" label="Joined" value={member.date_joined} mono />
+              <Edit
+                f="induction_date"
+                label="Inducted"
+                value={member.induction_date}
+                emptyText="not yet"
+                mono
+              />
+              <Edit f="member_status" label="Status" value={member.member_status} />
 
               {/* PRD 6.5: a hidden group renders as nothing at all, not as a
                   locked row -- the field is absent because the data is absent.
@@ -154,8 +196,11 @@ export default async function MemberPage({
                   is what HS + FD get: a real cell holding an age band. */}
               {can("personal") && (
                 <>
-                  <Field label="Date of birth" value={member.date_of_birth} mono
-                    masked={isMasked(member.date_of_birth)} />
+                  <Edit f="date_of_birth" label="Date of birth" value={member.date_of_birth}
+                    mono masked={isMasked(member.date_of_birth)} />
+                  {/* Age is derived from the date of birth on every read, so
+                      it has no editor at any level -- there is no column to
+                      write. Correct the birth date and the age follows. */}
                   <Field label="Age" value={member.age ? String(member.age) : null}
                     masked={isMasked(member.age)} />
                 </>
@@ -163,19 +208,21 @@ export default async function MemberPage({
 
               {can("contact") && (
                 <>
-                  <Field label="Mobile" value={member.mobile} mono masked={isMasked(member.mobile)} />
-                  <Field label="JCI email" value={member.jci_email} />
-                  <Field label="Personal email" value={member.personal_email} />
+                  <Edit f="mobile" label="Mobile" value={member.mobile} mono
+                    masked={isMasked(member.mobile)} />
+                  <Edit f="jci_email" label="JCI email" value={member.jci_email} />
+                  <Edit f="personal_email" label="Personal email" value={member.personal_email} />
+                  {/* Derived from the class and status, not stored. */}
                   <Field label="WhatsApp groups" value={member.whatsapp_groups} />
                 </>
               )}
 
               {can("professional") && (
                 <>
-                  <Field label="Company" value={member.company} />
-                  <Field label="Job title" value={member.job_title} />
-                  <Field label="Industry" value={member.industry} />
-                  <Field label="Interests" value={member.areas_of_interest} />
+                  <Edit f="company" label="Company" value={member.company} />
+                  <Edit f="job_title" label="Job title" value={member.job_title} />
+                  <Edit f="industry" label="Industry" value={member.industry} />
+                  <Edit f="areas_of_interest" label="Interests" value={member.areas_of_interest} />
                 </>
               )}
 
@@ -192,10 +239,10 @@ export default async function MemberPage({
           {can("governance") ? (
             <Card title="Governance" subtitle="Board motions and recorded reasons">
               <dl className="grid grid-cols-2 gap-x-5 gap-y-3.5">
-                <Field label="Motion date" value={member.bod_motion_date} mono />
-                <Field label="Motion result" value={member.bod_motion_result} />
-                <Field label="Status reason" value={member.status_reason} span={2} />
-                <Field label="Remark" value={member.remark} span={2} />
+                <Edit f="bod_motion_date" label="Motion date" value={member.bod_motion_date} mono />
+                <Edit f="bod_motion_result" label="Motion result" value={member.bod_motion_result} />
+                <Edit f="status_reason" label="Status reason" value={member.status_reason} span={2} />
+                <Edit f="remark" label="Remark" value={member.remark} span={2} />
               </dl>
             </Card>
           ) : null}
@@ -263,20 +310,41 @@ export default async function MemberPage({
                       <tr key={f.fee_year}>
                         <td className="font-semibold tnum">{f.fee_year}</td>
                         <td className="text-ink-muted">{f.class_that_year}</td>
-                        <td
-                          className="font-semibold"
-                          style={{
-                            color:
+                        <td>
+                          {/* Editable on the current year only. The finance
+                              group has no column on the member row -- the
+                              status is derived from this table -- so this
+                              cell is where an EDIT right on finance actually
+                              lands, and it is the Finance Director's whole
+                              job here: mark this year paid. Earlier years
+                              are history rather than a correction. */}
+                          <EditableCell
+                            value={f.status}
+                            memberId={member.member_id}
+                            spec={f.fee_year === currentYear ? spec("fee_status_current") : null}
+                            tone={
                               f.status === "Unpaid"
                                 ? status.risk
                                 : f.status === "Pending"
                                   ? status.watch
-                                  : status.healthy,
-                          }}
-                        >
-                          {f.status}
+                                  : status.healthy
+                            }
+                          />
                         </td>
-                        <td className="tnum text-ink-muted">{f.submission_date ?? "—"}</td>
+                        <td className="tnum text-ink-muted">
+                          {f.fee_year === currentYear ? (
+                            <EditableField
+                              label="Fee submitted"
+                              hideLabel
+                              value={f.submission_date}
+                              memberId={member.member_id}
+                              spec={spec("fee_submission_date")}
+                              mono
+                            />
+                          ) : (
+                            (f.submission_date ?? "—")
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -317,6 +385,17 @@ export default async function MemberPage({
       </div>
 
       <HiddenNote payload={payload} />
+
+      {/* Erasing a record. Rendered only for the permission level that owns
+          the member database, so for every other level it is not on the
+          page at all. */}
+      {payload.access.can_delete && (
+        <DeleteMemberPanel
+          memberId={member.member_id}
+          name={member.full_name}
+          status={member.member_status}
+        />
+      )}
     </>
   );
 }

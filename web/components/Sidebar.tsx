@@ -52,7 +52,7 @@ export function Sidebar({
         >
           <Lock className="h-4 w-4 shrink-0" aria-hidden />
           <span className="flex-1">{label}</span>
-          <span className="sr-only">not available to your role</span>
+          <span className="sr-only">not available at your permission level</span>
         </div>
       );
     }

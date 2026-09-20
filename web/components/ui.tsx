@@ -1,5 +1,6 @@
 import { Lock } from "lucide-react";
 
+import { levelLabel, levelShort, postLabel, summarisePosts } from "@/lib/posts";
 import { healthBand, severity, type HealthBand, type Severity } from "@/lib/theme";
 
 export function PageHead({
@@ -131,16 +132,80 @@ export function Card({
   );
 }
 
-/** Shown where a whole page or panel is out of scope for the role. */
+/** Shown where a whole page or panel is out of scope for the permission level. */
 export function Restricted({ what }: { what: string }) {
   return (
     <div className="card card-pad flex items-center gap-3 text-[13px] text-ink-muted">
       <Lock className="h-4 w-4 shrink-0 text-ink-faint" aria-hidden />
       <span>
-        <strong className="font-semibold text-ink">{what}</strong> is not available to your
-        role. The data behind it was never loaded for this session — it is not hidden on
-        screen, it is absent from the response.
+        <strong className="font-semibold text-ink">{what}</strong> is not available at your
+        permission level. The data behind it was never loaded for this session — it is not
+        hidden on screen, it is absent from the response.
       </span>
     </div>
+  );
+}
+
+/**
+ * A member's post, in words, with the rest of their record behind it.
+ *
+ * This replaces printing the raw role record ("P & BOD & FM"), which asked
+ * the reader to decode three codes and gave the President exactly as much
+ * weight as the membership class everybody holds. The headline is the
+ * highest post held, and it is the whole of what is shown -- the others are
+ * in the tooltip, where they are one hover away without competing for the
+ * eye or adding a number to decode.
+ *
+ * Renders nothing for a member who holds no post. Their class chip already
+ * says PM or FM, and "Full Member" in bold beside it is a rank invented for
+ * someone who does not have one.
+ */
+export function PostChip({
+  codes,
+  title,
+}: {
+  codes: string[];
+  title?: string;
+}) {
+  const posts = summarisePosts(codes);
+  if (posts.classOnly) return null;
+
+  return (
+    <span
+      className="chip bg-jci-blue/15 font-semibold text-jci-navy"
+      title={title ?? `Posts held — ${posts.full}`}
+    >
+      {posts.headline}
+    </span>
+  );
+}
+
+/**
+ * The permission level, named as a permission rather than as a role.
+ *
+ * "Access tier" and "role record" were two phrases using the same word for
+ * two different things -- what someone IS, and what they may SEE. The label
+ * says permission level; the post that earned it is the explanation.
+ */
+export function PermissionChip({
+  level,
+  via,
+}: {
+  level: string;
+  via?: string | null;
+}) {
+  return (
+    <span
+      className="chip bg-surface-sunken text-ink-muted"
+      title={
+        via
+          ? `${levelLabel(level)} · earned by the post of ${postLabel(via)}, the highest held`
+          : levelLabel(level)
+      }
+    >
+      {/* The number leads. In a chip beside a post there is no room for the
+          name as well, so it sits in the tooltip with the derivation. */}
+      <span className="font-semibold">{levelShort(level)}</span>
+    </span>
   );
 }

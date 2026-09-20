@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { record } from "@/lib/activity";
+import { levelLabel } from "@/lib/posts";
 import { endSession, getSession, startSession, verifyCredentials } from "@/lib/auth";
 
 /**
@@ -46,8 +47,8 @@ export async function signIn(
     action: "SIGN_IN",
     target_member_id: session.member_id,
     detail:
-      `Signed in · role record ${session.role_record} · ` +
-      `${session.tier} via ${session.governing_role ?? "—"}`,
+      `Signed in · posts ${session.role_record} · ` +
+      `${levelLabel(session.tier)} via ${session.governing_role ?? "—"}`,
   });
 
   redirect("/");

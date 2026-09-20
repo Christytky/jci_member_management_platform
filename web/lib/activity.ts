@@ -27,7 +27,14 @@ export type LogAction =
   | "VIEW_GROWTH"
   | "EXPORT"
   | "UPLOAD"
-  | "VIEW_DASHBOARD";
+  | "VIEW_DASHBOARD"
+  // The per-field write path. EDIT_ACCESS is deliberately not EDIT: a
+  // change to a board post changes what that member may SEE, and an audit
+  // that files it next to a corrected phone number has lost the difference.
+  | "EDIT"
+  | "EDIT_ACCESS"
+  | "CREATE"
+  | "DELETE";
 
 export type LogRow = {
   log_id: number;
@@ -63,7 +70,7 @@ function store() {
 function seed(s: { rows: LogRow[]; next: number }) {
   const base = new Date("2026-09-18T09:12:00+08:00").getTime();
   const rows: Omit<LogRow, "log_id" | "ts">[] = [
-    { actor_name: "Rufus To", actor_role: "President + MA", action: "SIGN_IN", target_member_id: "VJC-0007", field_group: null, detail: "Signed in · role record MAD & BOD & SO & FM · President + MA via MAD" },
+    { actor_name: "Rufus To", actor_role: "President + MA", action: "SIGN_IN", target_member_id: "VJC-0007", field_group: null, detail: "Signed in · posts MAD & BOD & SO & FM · President + MA via MAD" },
     { actor_name: "Rufus To", actor_role: "President + MA", action: "VIEW_RESTRICTED", target_member_id: "VJC-0064", field_group: "personal", detail: "Opened Profile tab" },
     { actor_name: "Rufus To", actor_role: "President + MA", action: "EXPORT", target_member_id: null, field_group: "analytics", detail: "Directory export, 53 columns" },
     { actor_name: "Man Kit Lee", actor_role: "HS + FD", action: "VIEW_RESTRICTED", target_member_id: "VJC-0089", field_group: "finance", detail: "Opened Fees tab" },

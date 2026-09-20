@@ -20,7 +20,7 @@ export default async function DashboardPage() {
         />
         <Restricted what="The chapter dashboard" />
         <div className="mt-4 text-[13px] text-ink-muted">
-          Your role can still open the{" "}
+          Your permission level can still open the{" "}
           <Link href="/directory" className="font-semibold text-jci-navy underline underline-offset-2">
             member directory
           </Link>{" "}

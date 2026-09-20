@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { record } from "@/lib/activity";
 import { applyWorkbook, stageWorkbook, type UploadReport } from "@/lib/admin";
 import { getSession } from "@/lib/auth";
-import { getPayloadFor } from "@/lib/data";
+import { clearPayloadCache, getPayloadFor } from "@/lib/data";
 
 export type UploadState = {
   staged?: string;
@@ -73,6 +73,9 @@ export async function apply(_prev: UploadState, formData: FormData): Promise<Upl
   });
 
   // Payloads on disk have changed; every cached render of them is stale.
+  // Both caches have to go: the parsed-JSON map in lib/data.ts, which
+  // revalidatePath does not reach, and Next's own render cache.
+  clearPayloadCache();
   revalidatePath("/", "layout");
   return result.ok
     ? { applied: true, log: result.log, staged: name }

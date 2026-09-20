@@ -2,6 +2,7 @@ import { LogOut } from "lucide-react";
 
 import { signOut } from "@/app/login/actions";
 import type { Payload } from "@/lib/data";
+import { levelLabel, postLabel, summarisePosts } from "@/lib/posts";
 
 /**
  * Who is signed in, and why they can see what they can see.
@@ -14,6 +15,7 @@ import type { Payload } from "@/lib/data";
  */
 export function AccountCard({ payload }: { payload: Payload }) {
   const { viewer, access } = payload;
+  const posts = summarisePosts(viewer.roles);
   const initials = viewer.name
     .split(" ")
     .map((p) => p[0])
@@ -36,36 +38,41 @@ export function AccountCard({ payload }: { payload: Payload }) {
         </div>
 
         <div className="mt-2.5 border-t border-surface-rule pt-2.5">
-          <div className="label">Roles on record</div>
-          <div className="mt-1 flex flex-wrap gap-1">
-            {viewer.roles.map((r) => (
-              <span
-                key={r}
-                className={`chip ${
-                  r === viewer.governing_role
-                    ? "bg-jci-blue/15 text-jci-navy"
-                    : "bg-surface text-ink-faint"
-                }`}
-                title={
-                  r === viewer.governing_role
-                    ? "Highest role held — this is the one that sets your access"
-                    : "Held, but does not raise your access"
-                }
-              >
-                {r}
-              </span>
-            ))}
-          </div>
-
-          <div className="label mt-2.5">Access tier</div>
-          <p className="mt-0.5 text-[11.5px] leading-4 text-ink">
-            <strong className="font-semibold">{access.tier}</strong>
-            {viewer.governing_role && (
-              <span className="text-ink-faint"> · via {viewer.governing_role}</span>
-            )}
+          {/* The post first, in words and on its own line. It used to be one
+              chip among several identical ones, so "President" sat level
+              with "Full Member" and the reader had to know which mattered. */}
+          <div className="label">Post</div>
+          <p className="mt-0.5 text-[12px] font-semibold leading-4 text-jci-navy">
+            {posts.headline}
           </p>
-          <p className="mt-0.5 text-[10.5px] leading-4 text-ink-faint tnum">
-            {access.column_count} of {access.total_fields} fields
+          {posts.others.length > 0 && (
+            <p
+              className="mt-0.5 text-[10.5px] leading-4 text-ink-faint"
+              title={`Also held — ${posts.others.join(", ")}`}
+            >
+              also {posts.others.join(", ")}
+            </p>
+          )}
+
+          <div className="label mt-2.5">Permission level</div>
+          <p className="mt-0.5 text-[11.5px] leading-4 text-ink">
+            <strong className="font-semibold">{levelLabel(access.tier)}</strong>
+          </p>
+          {viewer.governing_role && (
+            <p className="mt-0.5 text-[10.5px] leading-4 text-ink-faint">
+              earned by {postLabel(viewer.governing_role)}, the highest post held
+            </p>
+          )}
+          <p className="mt-1 text-[10.5px] leading-4 text-ink-faint tnum">
+            {access.column_count} of {access.total_fields} fields readable
+          </p>
+          {/* The write half, said as plainly as the read half. A level with
+              no editable group is told so, rather than left to discover it
+              by finding no pencils. */}
+          <p className="mt-0.5 text-[10.5px] leading-4 text-ink-faint">
+            {access.editable_groups.length > 0
+              ? `${access.editable_groups.join(", ")} editable`
+              : "read-only on member records"}
           </p>
         </div>
 

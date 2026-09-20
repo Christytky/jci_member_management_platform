@@ -3,22 +3,30 @@
     {
       "tier": "President + MA",
       "rank": 4,
-      "slug": "admin"
+      "slug": "admin",
+      "level": 1,
+      "level_label": "Level 1 \u2014 President + MA"
     },
     {
       "tier": "HS + FD",
       "rank": 3,
-      "slug": "secretariat"
+      "slug": "secretariat",
+      "level": 2,
+      "level_label": "Level 2 \u2014 HS + FD"
     },
     {
       "tier": "Board / Chairman / SO",
       "rank": 2,
-      "slug": "leader"
+      "slug": "leader",
+      "level": 3,
+      "level_label": "Level 3 \u2014 Board / Chairman / SO"
     },
     {
       "tier": "Member",
       "rank": 1,
-      "slug": "member"
+      "slug": "member",
+      "level": 4,
+      "level_label": "Level 4 \u2014 Member"
     }
   ],
   "roles": [

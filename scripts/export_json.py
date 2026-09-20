@@ -38,6 +38,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from src import alerts, auth, db, derived, growth, health  # noqa: E402
+from src import mutations as M  # noqa: E402
 from src import permissions as P  # noqa: E402
 from src import roles as R  # noqa: E402
 
@@ -169,12 +170,29 @@ def access_block(role: str, visible: pd.DataFrame, total_fields: int) -> dict:
     return {
         "tier": role,
         "tier_rank": R.TIER_RANK[role],
+        # What a person reads. tier_rank counts UP with seniority because it
+        # is the comparison key the derivation uses; the level counts DOWN,
+        # because level 1 is how people say "the top one". Shipped rather
+        # than computed in the UI so both halves come from one table.
+        "level": R.level_of(role),
+        "level_label": R.level_label(role),
         "visible_groups": P.visible_groups(role),
         "hidden_groups": P.hidden_groups(role),
         "masked_groups": P.masked_groups(role),
         "banner": P.describe(role),
         "pages": {pg: P.can_open(role, pg) for pg in P.PAGE_ACCESS},
         "can_write": P.can_write(role),
+        # The write half of the matrix, shipped the same way the read half
+        # is. The UI draws an editable field only where this says so, and
+        # scripts/mutate.py re-checks it server-side regardless -- a page
+        # not drawing an input is not an access control.
+        "editable_groups": M.editable_groups(role),
+        "can_create": M.can_create(role),
+        "can_delete": M.can_delete(role),
+        "writable_fields": {
+            name: M.WRITABLE[name].as_dict() for name in M.editable_fields(role)
+        },
+        "write_banner": M.describe_write(role),
         "column_count": len(visible.columns),
         # Shipped rather than hardcoded in the banner: adding a derived column
         # used to leave "n of 53" quietly wrong.
@@ -260,6 +278,8 @@ def main() -> None:
                 "tier": role,
                 "slug": TIER_SLUG[role],
                 "rank": R.TIER_RANK[role],
+                "level": R.level_of(role),
+                "level_label": R.level_label(role),
                 "columns": len(visible.columns),
                 "members": len(visible),
                 "alerts": len(al),
@@ -315,7 +335,13 @@ def main() -> None:
         json.dumps(
             {
                 "tiers": [
-                    {"tier": t, "rank": R.TIER_RANK[t], "slug": TIER_SLUG[t]}
+                    {
+                        "tier": t,
+                        "rank": R.TIER_RANK[t],
+                        "slug": TIER_SLUG[t],
+                        "level": R.level_of(t),
+                        "level_label": R.level_label(t),
+                    }
                     for t in R.TIERS
                 ],
                 "roles": [r.as_dict() for r in R.CATALOGUE.values()],

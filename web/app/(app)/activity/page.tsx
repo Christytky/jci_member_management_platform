@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Card, Empty, PageHead, Restricted } from "@/components/ui";
 import { read } from "@/lib/activity";
+import { levelShort } from "@/lib/posts";
 import { getPayload } from "@/lib/data";
 import { brand, status } from "@/lib/theme";
 
@@ -19,6 +20,13 @@ const ACTION_TONE: Record<string, { bg: string; color: string }> = {
   EXPORT: { bg: "#FDF0E2", color: status.watch },
   UPLOAD: { bg: "#FDF0E2", color: status.watch },
   VIEW_DASHBOARD: { bg: "#F2F6F9", color: "#5C6480" },
+  // Writes. A record CHANGING is a louder fact than a record being read,
+  // and the three that alter who may see what — a post change, a record
+  // added, a record erased — carry the risk colour rather than the warn one.
+  EDIT: { bg: "#FDF0E2", color: status.watch },
+  EDIT_ACCESS: { bg: "#FCE9EA", color: status.risk },
+  CREATE: { bg: "#E8EEF8", color: brand.navy },
+  DELETE: { bg: "#FCE9EA", color: status.risk },
 };
 
 function when(iso: string): string {
@@ -84,7 +92,7 @@ export default async function ActivityPage() {
               <tr>
                 <th className="w-[15%]">Time</th>
                 <th className="w-[16%]">Actor</th>
-                <th className="w-[16%]">Access tier</th>
+                <th className="w-[16%]">Permission level</th>
                 <th className="w-[14%]">Action</th>
                 <th className="w-[11%]">Target</th>
                 <th>Detail</th>
@@ -97,7 +105,9 @@ export default async function ActivityPage() {
                   <tr key={r.log_id}>
                     <td className="tnum text-[12px] text-ink-muted">{when(r.ts)}</td>
                     <td className="font-semibold">{r.actor_name}</td>
-                    <td className="text-[12px] text-ink-muted">{r.actor_role}</td>
+                    <td className="text-[12px] text-ink-muted" title={r.actor_role}>
+                      {levelShort(r.actor_role)}
+                    </td>
                     <td>
                       <span
                         className="chip"

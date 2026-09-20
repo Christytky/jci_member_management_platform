@@ -21,6 +21,7 @@ sys.path.insert(0, str(ROOT))
 
 from src import alerts, db, derived, health  # noqa: E402
 from src import permissions as P
+from src import mutations as M  # noqa: E402
 from src import roles as R  # noqa: E402
 
 EXPECTED_ALERTS = {1: 4, 2: 10, 3: 6, 4: 23, 5: 5, 6: 7, 7: 8}
@@ -205,6 +206,92 @@ def main() -> None:
             leaked.append(f.stem)
     check(not leaked, "each Member file holds exactly its own record",
           ", ".join(leaked[:3]) or "sampled 40")
+
+    print("\nPermission levels (what a person reads)")
+    # The display level is the INVERSE of tier_rank: rank counts up with
+    # seniority because it is the comparison key the derivation uses, and the
+    # level counts down because level 1 is how people say "the top one".
+    # Reading the wrong one labels the President "Level 4", which no column
+    # count or permission check would catch.
+    check(
+        R.level_of(R.ADMIN) == 1,
+        "President + MA reads as Level 1",
+        R.level_label(R.ADMIN),
+    )
+    check(
+        R.level_of(R.MEMBER) == len(R.TIERS),
+        f"Member reads as Level {len(R.TIERS)}",
+        R.level_label(R.MEMBER),
+    )
+    check(
+        sorted(R.DISPLAY_LEVEL.values()) == list(range(1, len(R.TIERS) + 1)),
+        "every level number is used exactly once",
+        ", ".join(f"{R.level_of(t)}={t}" for t in R.TIERS),
+    )
+    inverted = all(
+        R.level_of(a) < R.level_of(b)
+        for a in R.TIERS for b in R.TIERS
+        if R.TIER_RANK[a] > R.TIER_RANK[b]
+    )
+    check(inverted, "the level is the inverse of tier_rank, for every pair")
+
+    print("\nWrite permissions (who may CHANGE a record)")
+    # The read matrix has always been checked. The write half needs checking
+    # for the same reason and one extra one: identity is FULL for all four
+    # levels, so a wrong reading of FULL is a privilege-escalation path
+    # rather than a leak, and it would not show up in any column count.
+    check(
+        M.editable_groups(R.ADMIN) == list(P.FIELD_GROUPS),
+        "President + MA may edit every field group",
+        ", ".join(M.editable_groups(R.ADMIN)),
+    )
+    check(
+        M.editable_groups(R.SECRETARIAT) == ["contact", "finance"],
+        "HS + FD may edit exactly contact and finance",
+        ", ".join(M.editable_groups(R.SECRETARIAT)) or "none",
+    )
+    for level in (R.LEADER, R.MEMBER):
+        check(
+            M.editable_groups(level) == [],
+            f"{level} is read-only on member records",
+            ", ".join(M.editable_groups(level)) or "no editable groups",
+        )
+
+    # The escalation path, asserted closed. A post column decides a member's
+    # permission level, so anyone who may write one may grant themselves the
+    # level it carries.
+    granting = ["board_post_2026", "is_bod_2026", "national_post_2026", "member_class"]
+    for level in (R.SECRETARIAT, R.LEADER, R.MEMBER):
+        blocked = [f for f in granting if not M.can_edit_field(level, f)]
+        check(
+            len(blocked) == len(granting),
+            f"{level} cannot grant a post to anyone",
+            f"{len(blocked)}/{len(granting)} access-granting fields refused",
+        )
+
+    check(
+        M.can_create(R.ADMIN) and M.can_delete(R.ADMIN),
+        "President + MA may add and erase a record",
+    )
+    check(
+        not any(M.can_create(t) or M.can_delete(t) for t in
+                (R.SECRETARIAT, R.LEADER, R.MEMBER)),
+        "no other level may add or erase a record",
+    )
+
+    # A write to a derived column would be silently undone by the next
+    # export, so it is refused by name instead.
+    derived_writes = [f for f in ("age", "health_score", "fee_status_current"
+                                  ) if f in M.WRITABLE and f != "fee_status_current"]
+    check(
+        not derived_writes and "health_score" not in M.WRITABLE,
+        "derived fields are not writable",
+        "age and health_score refused",
+    )
+    check(
+        "member_id" not in M.WRITABLE,
+        "member_id cannot be edited once allocated",
+    )
 
     print("\nPII (PRD 11)")
     mob = frames["members"]["mobile"].astype(str)

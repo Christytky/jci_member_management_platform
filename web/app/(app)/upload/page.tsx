@@ -4,6 +4,7 @@ import { UploadPanel } from "@/components/UploadPanel";
 import { Card, Empty, PageHead, Restricted } from "@/components/ui";
 import { listStaged } from "@/lib/admin";
 import { getPayload } from "@/lib/data";
+import { levelLabel, summarisePosts } from "@/lib/posts";
 
 export const metadata = { title: "Member database — JCI Victoria" };
 
@@ -26,10 +27,11 @@ export default async function UploadPage() {
         <PageHead title="Member database" subtitle="Upload and replace chapter records" />
         <Restricted what="Updating the member database" />
         <p className="mt-4 text-[13px] leading-5 text-ink-muted">
-          The member database is maintained by the President and the MA team. Your role
-          record is{" "}
-          <strong className="font-semibold text-ink">{payload.viewer.role_record}</strong>,
-          which places you on the {payload.access.tier} tier.
+          The member database is maintained by the President and the MA team. Your post is{" "}
+          <strong className="font-semibold text-ink">
+            {summarisePosts(payload.viewer.roles).headline}
+          </strong>
+          , which earns {levelLabel(payload.access.tier)}.
         </p>
       </>
     );
@@ -67,13 +69,13 @@ export default async function UploadPage() {
               <li>
                 <span className="label block">2 · Derive</span>
                 Recomputes every derived field — ages, FM deadlines, health scores — and
-                resolves each member&apos;s role record to a permission tier.
+                resolves each member&apos;s post record to a permission level.
               </li>
               <li>
                 <span className="label block">3 · Rebuild</span>
-                Writes a fresh payload per tier, and one per member on the Member tier.
-                This is the step that keeps the access rules from going stale: a tier is
-                served a file holding only the fields it may see.
+                Writes a fresh payload per permission level, and one per member on the Member
+                level. This is the step that keeps the access rules from going stale: a
+                level is served a file holding only the fields it may see.
               </li>
             </ol>
           </Card>
