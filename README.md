@@ -351,18 +351,6 @@ Stated rather than hidden.
 
 ---
 
-## Two open design questions
-
-Both are decisions, not oversights, and both are worth confirming before any pilot.
-
-**1. How much contact detail should a project Chairman see?** The spec grants project leaders full read access on contact, following current chapter practice. This build takes the narrower reading: JCI address in the clear, mobile and personal email masked. A Chairman gets a way to reach his team — not everyone's private number.
-
-**2. `member_status` is visible to every role.** So a Chairman can see that a member is *"Pending BOD Motion"* even though the entire governance group is hidden from him. That follows the spec, where identity is full access for everyone. It is defensible — the status is operationally necessary — but it is a judgement call.
-
-Two further questions need a chapter, not a codebase, to answer: **how long a removed member's record is kept**, and **who the named data owner is**. Both are governance decisions for the board, and neither is settled here.
-
----
-
 ## Documentation
 
 - This README — the whole of it. How the logic works, how permissions are enforced, how roles resolve to tiers, and where the build made a judgement call.
